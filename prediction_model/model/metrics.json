@@ -1,15 +1,15 @@
 {
   "random_forest": {
-    "mae": 21584.029139324797,
-    "r2": -0.8367948905389124
+    "mae": 22630.473321532874,
+    "r2": -0.9713599704631286
   },
   "gradient_boosting": {
-    "mae": 21155.385800945438,
-    "r2": -0.7734483886841346
+    "mae": 21995.356034478365,
+    "r2": -0.8482389250518223
   },
   "lstm": {
-    "mae": 7146.251094956559,
-    "r2": 0.8022171737377505,
+    "mae": 5697.739109857622,
+    "r2": 0.8694264655924859,
     "window_size": 30
   },
   "feature_cols": [
@@ -22,6 +22,7 @@
     "taker_buy_base",
     "taker_buy_quote"
   ],
-  "target_col": "close",
-  "test_size": 0.3
+  "target_col": "close_next",
+  "test_size": 0.3,
+  "note": "All models predict next candle's close price (no target leakage)"
 }

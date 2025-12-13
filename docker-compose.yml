@@ -1,18 +1,30 @@
-
-version: "3.9"
-
 services:
-  backend:
-    build: ./backend
-    container_name: predict-backend
-    ports:
-      - "8000:8000"
-
   frontend:
+    # Frontend service
     build: ./frontend
-    container_name: predict-frontend
+    container_name: frontend
     ports:
       - "3000:3000"
-    depends_on:
-      - backend
+    volumes:
+      - ./frontend/app:/app/frontend/app
+      - /app/frontend/node_modules
+    networks:
+      - pgsite
  
+  backend:
+    # Backend service
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/src:/app/src
+      - /app/node_modules
+    networks:
+      - pgsite
+ 
+
+networks:
+  pgsite:

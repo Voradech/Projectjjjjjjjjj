@@ -41,7 +41,7 @@ def create_sequences(X_data, y_data, window):
     X_seq, y_seq = [], []
     for i in range(window, len(X_data)):
         X_seq.append(X_data[i - window:i])  # window แท่งก่อนหน้า
-        y_seq.append(y_data[i])             # target ของแท่งปัจจุบัน
+        y_seq.append(y_data[i])             # target ของแท่งถัดไป
     return np.array(X_seq), np.array(y_seq)
 
 
@@ -60,34 +60,51 @@ missing_cols = [c for c in (["date"] + FEATURE_COLS + [TARGET_COL]) if c not in 
 if missing_cols:
     raise ValueError(f"Missing columns in CSV: {missing_cols}")
 
-# เลือกเฉพาะคอลัมน์ที่ต้องใช้
-df_features = df[FEATURE_COLS]
-df_target = df[TARGET_COL]
+#  แก้ไข Target Leakage: สร้าง target เป็นราคาปิดของแท่งถัดไป
+print("Creating target: next candle's close price...")
+df["close_next"] = df[TARGET_COL].shift(-1)
 
-X = df_features.values
-y = df_target.values
+# ลบแถวสุดท้ายที่ไม่มี close_next
+df = df.dropna(subset=["close_next"])
 
-# ---------- 2. Train Random Forest ----------
-# แบ่ง Train/Test แบบไม่ shuffle (รักษาลำดับเวลา)
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=TEST_SIZE, shuffle=False
-)
+print(f"Total samples after target shift: {len(df)}")
 
-print("Training Random Forest...")
+# ---------- 2. แบ่งข้อมูลตามเวลา (70/30) ----------
+# แบ่งก่อนที่จะแยก features/target เพื่อให้ทุกโมเดลใช้ split เดียวกัน
+split_idx = int(len(df) * (1 - TEST_SIZE))
+train_df = df.iloc[:split_idx].copy()
+test_df = df.iloc[split_idx:].copy()
+
+print(f"Train size: {len(train_df)}, Test size: {len(test_df)}")
+
+# ---------- 3. เตรียมข้อมูลสำหรับ RF & GB ----------
+X_train_raw = train_df[FEATURE_COLS].values
+y_train_raw = train_df["close_next"].values
+
+X_test_raw = test_df[FEATURE_COLS].values
+y_test_raw = test_df["close_next"].values
+
+#  Scale features เพื่อป้องกัน leakage (fit เฉพาะ train)
+scaler_X_tree = MinMaxScaler()
+X_train_scaled = scaler_X_tree.fit_transform(X_train_raw)
+X_test_scaled = scaler_X_tree.transform(X_test_raw)
+
+# ---------- 4. Train Random Forest ----------
+print("\nTraining Random Forest...")
 rf_model = RandomForestRegressor(
     n_estimators=200,
     random_state=42,
     n_jobs=-1,
 )
-rf_model.fit(X_train, y_train)
-rf_pred = rf_model.predict(X_test)
+rf_model.fit(X_train_scaled, y_train_raw)
+rf_pred = rf_model.predict(X_test_scaled)
 
-rf_mae = mean_absolute_error(y_test, rf_pred)
-rf_r2 = r2_score(y_test, rf_pred)
+rf_mae = mean_absolute_error(y_test_raw, rf_pred)
+rf_r2 = r2_score(y_test_raw, rf_pred)
 
 print(f"Random Forest      MAE: {rf_mae:.4f}, R2: {rf_r2:.4f}")
 
-# ---------- 3. Train Gradient Boosting ----------
+# ---------- 5. Train Gradient Boosting ----------
 print("Training Gradient Boosting...")
 gb_model = GradientBoostingRegressor(
     n_estimators=200,
@@ -96,51 +113,37 @@ gb_model = GradientBoostingRegressor(
     min_samples_split=5,
     random_state=42,
 )
-gb_model.fit(X_train, y_train)
-gb_pred = gb_model.predict(X_test)
+gb_model.fit(X_train_scaled, y_train_raw)
+gb_pred = gb_model.predict(X_test_scaled)
 
-gb_mae = mean_absolute_error(y_test, gb_pred)
-gb_r2 = r2_score(y_test, gb_pred)
+gb_mae = mean_absolute_error(y_test_raw, gb_pred)
+gb_r2 = r2_score(y_test_raw, gb_pred)
 
 print(f"Gradient Boosting  MAE: {gb_mae:.4f}, R2: {gb_r2:.4f}")
-# ---------- 4. เตรียมข้อมูลสำหรับ LSTM (No Leakage) ----------
-print("Preparing data for LSTM (no leakage)...")
 
-# split ตามเวลา (70/30) ก่อน แล้วค่อย scaling
-split_raw = int(len(df) * (1 - TEST_SIZE))
-train_df = df.iloc[:split_raw].copy()
-test_df  = df.iloc[split_raw:].copy()
+# ---------- 6. เตรียมข้อมูลสำหรับ LSTM ----------
+print("\nPreparing data for LSTM...")
 
-scaler_X = MinMaxScaler()
-scaler_y = MinMaxScaler()
+scaler_X_lstm = MinMaxScaler()
+scaler_y_lstm = MinMaxScaler()
 
-# ✅ fit เฉพาะ TRAIN เท่านั้น (กัน leakage)
-train_X_scaled = scaler_X.fit_transform(train_df[FEATURE_COLS].values)
-train_y_scaled = scaler_y.fit_transform(train_df[[TARGET_COL]].values).flatten()
+# Scale features (fit เฉพาะ train)
+train_X_scaled = scaler_X_lstm.fit_transform(train_df[FEATURE_COLS].values)
+test_X_scaled = scaler_X_lstm.transform(test_df[FEATURE_COLS].values)
 
-# ✅ transform เฉพาะ TEST
-test_X_scaled = scaler_X.transform(test_df[FEATURE_COLS].values)
-test_y_scaled = scaler_y.transform(test_df[[TARGET_COL]].values).flatten()
+# Scale target (fit เฉพาะ train)
+train_y_scaled = scaler_y_lstm.fit_transform(train_df[["close_next"]].values).flatten()
+test_y_scaled = scaler_y_lstm.transform(test_df[["close_next"]].values).flatten()
 
-# สร้าง sequence แยก train/test (ไม่มีการต่อข้ามชุด)
-X_train_all, y_train_all = create_sequences(train_X_scaled, train_y_scaled, LSTM_WINDOW_SIZE)
-X_test_lstm,  y_test_lstm  = create_sequences(test_X_scaled,  test_y_scaled,  LSTM_WINDOW_SIZE)
-
-# ✅ แยก validation จาก "ท้ายของ train" แบบชัดเจน (กัน leakage/ควบคุมเวลา)
-val_ratio = 0.1
-val_split = int(len(X_train_all) * (1 - val_ratio))
-
-X_train_lstm = X_train_all[:val_split]
-y_train_lstm = y_train_all[:val_split]
-X_val_lstm   = X_train_all[val_split:]
-y_val_lstm   = y_train_all[val_split:]
+# สร้าง sequences แยกฝั่ง train/test
+X_train_lstm, y_train_lstm = create_sequences(train_X_scaled, train_y_scaled, LSTM_WINDOW_SIZE)
+X_test_lstm, y_test_lstm = create_sequences(test_X_scaled, test_y_scaled, LSTM_WINDOW_SIZE)
 
 print("LSTM shapes ->",
       "X_train:", X_train_lstm.shape,
-      "X_val:", X_val_lstm.shape,
       "X_test:", X_test_lstm.shape)
 
-# ---------- 5. สร้าง & เทรน LSTM ----------
+# ---------- 7. สร้าง & เทรน LSTM ----------
 print("Training LSTM...")
 
 lstm_model = Sequential([
@@ -162,7 +165,7 @@ early_stop = EarlyStopping(
 history = lstm_model.fit(
     X_train_lstm,
     y_train_lstm,
-    validation_data=(X_val_lstm, y_val_lstm),  # ✅ val แยกชัดตามเวลา
+    validation_split=0.1,
     epochs=50,
     batch_size=32,
     callbacks=[early_stop],
@@ -173,31 +176,35 @@ history = lstm_model.fit(
 lstm_pred_scaled = lstm_model.predict(X_test_lstm, verbose=0).flatten()
 
 # inverse กลับเป็นราคาจริง
-lstm_pred = scaler_y.inverse_transform(lstm_pred_scaled.reshape(-1, 1)).flatten()
-y_test_lstm_original = scaler_y.inverse_transform(y_test_lstm.reshape(-1, 1)).flatten()
+lstm_pred = scaler_y_lstm.inverse_transform(lstm_pred_scaled.reshape(-1, 1)).flatten()
+y_test_lstm_original = scaler_y_lstm.inverse_transform(y_test_lstm.reshape(-1, 1)).flatten()
 
 lstm_mae = mean_absolute_error(y_test_lstm_original, lstm_pred)
 lstm_r2 = r2_score(y_test_lstm_original, lstm_pred)
 
 print(f"LSTM              MAE: {lstm_mae:.4f}, R2: {lstm_r2:.4f}")
 
-# ---------- 6. เซฟโมเดล + scalers + metrics ----------
+# ---------- 8. เซฟโมเดล + scalers + metrics ----------
+print("\nSaving models...")
 joblib.dump(rf_model, os.path.join(MODEL_DIR, "random_forest.pkl"))
 joblib.dump(gb_model, os.path.join(MODEL_DIR, "gradient_boosting.pkl"))
+joblib.dump(scaler_X_tree, os.path.join(MODEL_DIR, "scaler_X_tree.pkl"))
+
 lstm_model.save(os.path.join(MODEL_DIR, "lstm_model.keras"))
-joblib.dump(scaler_X, os.path.join(MODEL_DIR, "scaler_X.pkl"))
-joblib.dump(scaler_y, os.path.join(MODEL_DIR, "scaler_y.pkl"))
+joblib.dump(scaler_X_lstm, os.path.join(MODEL_DIR, "scaler_X_lstm.pkl"))
+joblib.dump(scaler_y_lstm, os.path.join(MODEL_DIR, "scaler_y_lstm.pkl"))
 
 metrics = {
     "random_forest": {"mae": float(rf_mae), "r2": float(rf_r2)},
     "gradient_boosting": {"mae": float(gb_mae), "r2": float(gb_r2)},
     "lstm": {"mae": float(lstm_mae), "r2": float(lstm_r2), "window_size": LSTM_WINDOW_SIZE},
     "feature_cols": FEATURE_COLS,
-    "target_col": TARGET_COL,
+    "target_col": "close_next", 
     "test_size": TEST_SIZE,
+    "note": "All models predict next candle's close price (no target leakage)"
 }
 
 with open(os.path.join(MODEL_DIR, "metrics.json"), "w", encoding="utf-8") as f:
     json.dump(metrics, f, indent=2, ensure_ascii=False)
 
-print("Done! Models and metrics are saved in:", MODEL_DIR)
+print("\n Done! Models and metrics are saved in:", MODEL_DIR)
