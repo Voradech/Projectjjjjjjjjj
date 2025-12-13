@@ -24,7 +24,19 @@ services:
       - /app/node_modules
     networks:
       - pgsite
- 
+
+  prediction_model:
+    # Prediction model service
+    build:
+      context: ./prediction_model
+      dockerfile: Dockerfile
+    container_name: prediction_model
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./prediction_model:/app
+    networks:
+      - pgsite
 
 networks:
   pgsite:
