@@ -1,6 +1,6 @@
 import express from "express";
 import fetch from "node-fetch";
-import { BinanceKline } from "./types.ts";
+import { BinanceKline } from "./types";
 
 const router = express.Router();
 
