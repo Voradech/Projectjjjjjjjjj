@@ -3,8 +3,10 @@ numpy
 scikit-learn
 joblib
 fastapi
-uvicorn
+uvicorn[standard]
 requests
 ccxt
-
-
+matplotlib
+xgboost
+tensorflow
+yfinance
