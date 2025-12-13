@@ -8,7 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "module": "nodenext",
-"moduleResolution": "nodenext"
+    "moduleResolution": "nodenext"
   },
   "keywords": [],
   "author": "",
