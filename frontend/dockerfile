@@ -2,10 +2,10 @@
 FROM node:20
  
 # Set the working directory
-WORKDIR /app/donationapp_ui
+WORKDIR /app/frontend
  
 # Copy package.json and package-lock.json
-COPY ./package.json /app/donationapp_ui/
+COPY ./package.json /app/frontend/
  
 # Install dependencies
 RUN npm install
