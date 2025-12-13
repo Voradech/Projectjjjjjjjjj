@@ -103,32 +103,41 @@ gb_mae = mean_absolute_error(y_test, gb_pred)
 gb_r2 = r2_score(y_test, gb_pred)
 
 print(f"Gradient Boosting  MAE: {gb_mae:.4f}, R2: {gb_r2:.4f}")
-
 # ---------- 4. เตรียมข้อมูลสำหรับ LSTM (No Leakage) ----------
 print("Preparing data for LSTM (no leakage)...")
 
-# ทำ split ตามเวลาในระดับ DataFrame ก่อน
-split_raw = int(len(df) * (1 - TEST_SIZE))  # train 70% test 30%
+# split ตามเวลา (70/30) ก่อน แล้วค่อย scaling
+split_raw = int(len(df) * (1 - TEST_SIZE))
 train_df = df.iloc[:split_raw].copy()
-test_df = df.iloc[split_raw:].copy()
+test_df  = df.iloc[split_raw:].copy()
 
 scaler_X = MinMaxScaler()
 scaler_y = MinMaxScaler()
 
-# fit เฉพาะ train เท่านั้น
+# ✅ fit เฉพาะ TRAIN เท่านั้น (กัน leakage)
 train_X_scaled = scaler_X.fit_transform(train_df[FEATURE_COLS].values)
 train_y_scaled = scaler_y.fit_transform(train_df[[TARGET_COL]].values).flatten()
 
-# transform เฉพาะ test
+# ✅ transform เฉพาะ TEST
 test_X_scaled = scaler_X.transform(test_df[FEATURE_COLS].values)
 test_y_scaled = scaler_y.transform(test_df[[TARGET_COL]].values).flatten()
 
-# สร้าง sequence แยกฝั่ง train/test (กันข้ามชุดกัน)
-X_train_lstm, y_train_lstm = create_sequences(train_X_scaled, train_y_scaled, LSTM_WINDOW_SIZE)
-X_test_lstm, y_test_lstm = create_sequences(test_X_scaled, test_y_scaled, LSTM_WINDOW_SIZE)
+# สร้าง sequence แยก train/test (ไม่มีการต่อข้ามชุด)
+X_train_all, y_train_all = create_sequences(train_X_scaled, train_y_scaled, LSTM_WINDOW_SIZE)
+X_test_lstm,  y_test_lstm  = create_sequences(test_X_scaled,  test_y_scaled,  LSTM_WINDOW_SIZE)
+
+# ✅ แยก validation จาก "ท้ายของ train" แบบชัดเจน (กัน leakage/ควบคุมเวลา)
+val_ratio = 0.1
+val_split = int(len(X_train_all) * (1 - val_ratio))
+
+X_train_lstm = X_train_all[:val_split]
+y_train_lstm = y_train_all[:val_split]
+X_val_lstm   = X_train_all[val_split:]
+y_val_lstm   = y_train_all[val_split:]
 
 print("LSTM shapes ->",
       "X_train:", X_train_lstm.shape,
+      "X_val:", X_val_lstm.shape,
       "X_test:", X_test_lstm.shape)
 
 # ---------- 5. สร้าง & เทรน LSTM ----------
@@ -153,7 +162,7 @@ early_stop = EarlyStopping(
 history = lstm_model.fit(
     X_train_lstm,
     y_train_lstm,
-    validation_split=0.1,   # เอาท้ายของ train เป็น val (เหมาะกับ time series)
+    validation_data=(X_val_lstm, y_val_lstm),  # ✅ val แยกชัดตามเวลา
     epochs=50,
     batch_size=32,
     callbacks=[early_stop],
