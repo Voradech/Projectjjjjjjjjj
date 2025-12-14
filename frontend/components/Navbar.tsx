@@ -1,40 +1,115 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import {
+  LayoutDashboard,
+  ShieldCheck,
+  LogOut,
+  UserCircle,
+  LogIn,
+} from "lucide-react";
 
-const Navbar = () => {
+interface User {
+  username: string;
+  role: string;
+}
+
+export default function Navbar() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+
+  // เช็ค Session เมื่อโหลดหน้าเว็บ
+  useEffect(() => {
+    const savedUser = localStorage.getItem("user");
+    if (savedUser) setUser(JSON.parse(savedUser));
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    setUser(null);
+    router.push("/login");
+  };
+
   return (
-    <nav className="relative w-full h-14 bg-yellow-600 flex items-center px-6">
-      {/* Left */}
-      <div className="flex items-center">
-        <h1 className="text-lg font-semibold text-[#101828]">
-          Dashboard
+    <nav className="fixed top-0 w-full z-50 bg-[#020617] backdrop-blur-md border-b border-navy-700 px-6 py-4 flex justify-between items-center shadow-lg shadow-black/20">
+      {/* Logo */}
+      <Link href="/" className="flex items-center gap-2 cursor-pointer group">
+        {/* <div className="w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_10px_#10B981] group-hover:scale-150 transition-transform"></div> */}
+        <h1 className="text-xl font-bold tracking-widest text-white group-hover:text-accent transition-colors">
+          Predict
+          <span className="text-accent group-hover:text-white transition-colors">
+            Bitcoin
+          </span>
         </h1>
-      </div>
-
-      {/* Center (true center) */}
-      <div className="absolute left-1/2 -translate-x-1/2">
+      </Link>
+      <div>
         <Link
-          href="/predictView"
-          className="font-semibold text-white "
+          href="/"
+          className="text-lg font-medium text-gray-400 hover:text-accent transition-colors mr-10"
         >
-          Predict View
+          {" "}
+          Home
+        </Link>
+        <Link
+          href="/PredictView"
+          className="text-lg font-medium text-gray-400 hover:text-accent transition-colors mr-10"
+        >
+          Predict
         </Link>
       </div>
-
-      {/* Right */}
-      <div className="ml-auto flex items-center gap-4">
+      {/* Menu & Auth */}
+      <div className="flex gap-6 text-sm font-medium text-gray-400 items-center">
         <Link
-          href="/profile"
-          className="text-sm text-[#3677CA] hover:underline"
+          href="/"
+          className="hover:text-accent flex items-center gap-2 transition-colors"
         >
-          Profile
+          <LayoutDashboard size={18} /> Trading Room
         </Link>
 
-        <button className="text-sm text-red-500 hover:underline">
-          Logout
-        </button>
+        {/* Admin Link (โชว์เฉพาะถ้าเป็น admin) */}
+        {user?.role === "admin" && (
+          <Link
+            href="/admin/dashboard"
+            className="text-blue-400 hover:text-blue-300 flex items-center gap-2 transition-colors"
+          >
+            <ShieldCheck size={18} /> Admin Portal
+          </Link>
+        )}
+
+        {/* Auth Section */}
+        <div className="h-6 w-px bg-navy-700 mx-2"></div>
+
+        {user ? (
+          <div className="flex items-center gap-4">
+            <span className="text-gray-200 flex items-center gap-2 bg-[151e32] px-3 py-1 rounded-full border border[#1E293B]">
+              <UserCircle size={16} className="text-accent" /> {user.username}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
+            >
+              <LogOut size={16} /> Logout
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="hover:text-white transition-colors flex items-center gap-1"
+            >
+              <LogIn size={16} /> Login
+            </Link>
+            <Link
+              href="/register"
+              className="bg-accent text-navy-950 px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
+            >
+              Sign Up
+            </Link>
+          </div>
+        )}
       </div>
     </nav>
   );
-};
-
-export default Navbar;
+}

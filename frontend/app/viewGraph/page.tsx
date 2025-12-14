@@ -96,7 +96,7 @@ const Page = () => {
       )}
 
       {!loading && !error && priceData.length > 0 && (
-        <div className="w-full h-[420px] border rounded-xl bg-white p-4">
+        <div className="w-full h-[420px] border rounded-xl bg-[#1E293B] p-4">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
