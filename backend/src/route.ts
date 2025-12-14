@@ -1,6 +1,7 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import fetch from "node-fetch";
 import type { BinanceKline, PriceCandle } from "./types";
+import Parser from "rss-parser";
 
 const router = express.Router();
 
@@ -11,7 +12,7 @@ const router = express.Router();
  *  - interval (default 1d)
  *  - limit (default 100)
  */
-router.get("/price", async (req, res) => {
+router.get("/price", async (req: Request, res: Response) => {
   try {
     const symbol = (req.query.symbol as string) || "BTCUSDT";
     const interval = (req.query.interval as string) || "1d";
@@ -53,6 +54,42 @@ router.get("/price", async (req, res) => {
     return res.status(500).json({
       error: "Failed to fetch price data"
     });
+  }
+});
+const parser = new Parser();
+
+router.get("/news", async (req: Request, res: Response) => {
+  try {
+    const feeds = [
+      { source: "CoinDesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss/" },
+      { source: "Cointelegraph", url: "https://cointelegraph.com/rss" },
+    ];
+
+    const results = await Promise.all(
+      feeds.map(async (f) => {
+        const feed = await parser.parseURL(f.url);
+        return (feed.items || []).map((it) => ({
+          title: it.title || "",
+          url: (it.link as string) || "",
+          source: f.source,
+          publishedAt: (it.isoDate as string) || (it.pubDate as string) || undefined,
+        }));
+      })
+    );
+
+    const merged = results.flat().filter((x) => x.title && x.url);
+
+    // กันซ้ำด้วย url
+    const uniq = Array.from(new Map(merged.map((x) => [x.url, x])).values());
+
+    // sort ใหม่ล่าสุดก่อน (ถ้ามี publishedAt)
+    uniq.sort((a, b) => (b.publishedAt || "").localeCompare(a.publishedAt || ""));
+
+    const limit = Math.min(Number(req.query.limit || 20), 100);
+    return res.json({ count: uniq.length, items: uniq.slice(0, limit) });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Failed to fetch RSS news" });
   }
 });
 

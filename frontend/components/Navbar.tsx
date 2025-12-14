@@ -53,21 +53,27 @@ export default function Navbar() {
           Home
         </Link>
         <Link
-          href="/PredictView"
+          href="/predictView"
           className="text-lg font-medium text-gray-400 hover:text-accent transition-colors mr-10"
         >
           Predict
         </Link>
+        <Link
+          href="/News"
+          className="text-lg font-medium text-gray-400 hover:text-accent transition-colors mr-10"
+        >
+          News
+        </Link>
       </div>
       {/* Menu & Auth */}
       <div className="flex gap-6 text-sm font-medium text-gray-400 items-center">
-        <Link
+       {/*  <Link
           href="/"
           className="hover:text-accent flex items-center gap-2 transition-colors"
         >
           <LayoutDashboard size={18} /> Trading Room
         </Link>
-
+ */}
         {/* Admin Link (โชว์เฉพาะถ้าเป็น admin) */}
         {user?.role === "admin" && (
           <Link
