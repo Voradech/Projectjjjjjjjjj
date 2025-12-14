@@ -37,6 +37,23 @@ services:
       - ./prediction_model:/app
     networks:
       - pgsite
+  db:
+    # PostgreSQL database service
+    image: postgres:16
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: always
+    ports:
+      - '5435:5432'
+    environment:
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - POSTGRES_DB=predicton_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=root
+    networks:
+      - pgsite
+volumes:
+  db_data: 
 
 networks:
   pgsite:

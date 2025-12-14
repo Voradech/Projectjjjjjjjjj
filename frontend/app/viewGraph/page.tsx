@@ -1,18 +1,15 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
+  createChart,
+  CandlestickData,
+  ISeriesApi,
+  Time,
+} from "lightweight-charts";
 
 type PriceCandle = {
-  time: number; // timestamp (ms)
+  time: number; // ms timestamp
   open: number;
   high: number;
   low: number;
@@ -26,120 +23,182 @@ type PriceApiResponse = {
   candles: PriceCandle[];
 };
 
-const formatDate = (ts: number) => {
-  const d = new Date(ts);
-  // แสดงแบบสั้น ๆ (ปรับได้)
-  return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+type RangeKey = "7D" | "1M" | "1Y";
+
+const RANGE_LIMIT: Record<RangeKey, number> = {
+  "7D": 7,
+  "1M": 30,
+  "1Y": 365,
 };
 
-const Page = () => {
-  const [priceData, setPriceData] = useState<PriceCandle[]>([]);
-  const [loading, setLoading] = useState(true);
+const ViewGraphPage = () => {
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // ✅ v5: ใช้ ReturnType<typeof createChart> แทน IChartApi
+  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
+
+  // ✅ เก็บ series reference
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
+
+  const [range, setRange] = useState<RangeKey>("1M");
+  const [ohlc, setOhlc] = useState<PriceCandle[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
 
+  // ---------- init chart once ----------
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+
+    const chart = createChart(chartContainerRef.current, {
+      height: 420,
+      layout: {
+        background: { color: "#ffffff" },
+        textColor: "#344054",
+      },
+      grid: {
+        vertLines: { color: "#f2f4f7" },
+        horzLines: { color: "#f2f4f7" },
+      },
+      rightPriceScale: { borderVisible: false },
+      timeScale: { borderVisible: false },
+    });
+
+    chartRef.current = chart;
+
+    // ✅ v5: ใช้ addSeries({ type: "Candlestick" }) แทน addCandlestickSeries()
+    candleSeriesRef.current = chart.addSeries({
+      type: "Candlestick",
+      upColor: "#16a34a",
+      downColor: "#dc2626",
+      wickUpColor: "#16a34a",
+      wickDownColor: "#dc2626",
+      borderVisible: false,
+    });
+
+    const handleResize = () => {
+      if (!chartContainerRef.current || !chartRef.current) return;
+      chartRef.current.applyOptions({
+        width: chartContainerRef.current.clientWidth,
+      });
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+
+      // ✅ removeSeries ต้องส่ง series เข้าไป
+      if (chartRef.current && candleSeriesRef.current) {
+        chartRef.current.removeSeries(candleSeriesRef.current);
+      }
+
+      chart.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+    };
+  }, []);
+
+  // ---------- load data when range changes ----------
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const r = await fetch("http://localhost:3001/api/price");
-        if (!r.ok) throw new Error(`API error: ${r.status}`);
+        const limit = RANGE_LIMIT[range];
 
-        const json = (await r.json()) as PriceApiResponse;
+        const res = await fetch(
+          `http://localhost:3001/api/price?interval=1d&limit=${limit}`
+        );
 
-        // กันพังถ้า API ไม่ส่ง candles มา
-        setPriceData(Array.isArray(json.candles) ? json.candles : []);
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+
+        const json = (await res.json()) as PriceApiResponse;
+        setOhlc(Array.isArray(json.candles) ? json.candles : []);
       } catch (e: any) {
         setError(e?.message ?? "Failed to load price data");
-        setPriceData([]);
+        setOhlc([]);
       } finally {
         setLoading(false);
       }
     };
 
     load();
-  }, []);
+  }, [range]);
 
-  const lastClose = priceData.length
-    ? priceData[priceData.length - 1].close
-    : null;
+  // ---------- update chart data ----------
+  useEffect(() => {
+    if (!candleSeriesRef.current) return;
 
-  const chartData = useMemo(() => {
-    // เพิ่ม field ที่ใช้โชว์บนกราฟ (label)
-    return priceData.map((c) => ({
-      ...c,
-      dateLabel: formatDate(c.time),
+    const data: CandlestickData<Time>[] = ohlc.map((c) => ({
+      time: Math.floor(c.time / 1000) as Time, // seconds
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
     }));
-  }, [priceData]);
+
+    candleSeriesRef.current.setData(data);
+    chartRef.current?.timeScale().fitContent();
+  }, [ohlc]);
+
+  const last = ohlc.length ? ohlc[ohlc.length - 1] : null;
 
   return (
     <div className="p-6 space-y-4">
-      <div className="text-xl font-semibold text-[#101828] flex items-center justify-center">
-        Bitcoin
-      </div>
+      {/* Header + Range Buttons */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[#101828]">Predict View</h1>
-        {lastClose !== null && (
-          <div className="text-sm text-[#344054]">
-            Latest Close:{" "}
-            <span className="font-semibold">{lastClose.toLocaleString()}</span>
-          </div>
-        )}
+        <h1 className="text-xl font-semibold text-[#101828]">
+          Predict View (Candlestick)
+        </h1>
+
+        <div className="flex gap-2">
+          {(["7D", "1M", "1Y"] as RangeKey[]).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`px-4 py-1 rounded-full text-sm font-medium
+                ${
+                  range === r
+                    ? "bg-[#4395FC] text-white"
+                    : "border border-[#4395FC] text-[#3677CA]"
+                }`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {loading && <p className="text-sm text-[#344054]">Loading...</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      {!loading && !error && priceData.length === 0 && (
-        <p className="text-sm text-[#344054]">No data</p>
-      )}
-
-      {!loading && !error && priceData.length > 0 && (
-        <div className="w-full h-[420px] border rounded-xl bg-[#1E293B] p-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="time"
-                tickFormatter={(v) => formatDate(Number(v))}
-                minTickGap={24}
-              />
-              <YAxis
-                domain={["auto", "auto"]}
-                tickFormatter={(v) => Number(v).toLocaleString()}
-              />
-              <Tooltip
-                labelFormatter={(label) => formatDate(Number(label))}
-                formatter={(value: any, name: any) => {
-                  if (typeof value === "number") {
-                    return [value.toLocaleString(), name];
-                  }
-                  return [value, name];
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="close"
-                dot={false}
-                strokeWidth={2}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+      {/* OHLC */}
+      {last && (
+        <div className="flex flex-wrap gap-6 text-sm text-[#344054]">
+          <div>
+            Open: <b>{last.open.toLocaleString()}</b>
+          </div>
+          <div>
+            High: <b>{last.high.toLocaleString()}</b>
+          </div>
+          <div>
+            Low: <b>{last.low.toLocaleString()}</b>
+          </div>
+          <div>
+            Close: <b>{last.close.toLocaleString()}</b>
+          </div>
         </div>
       )}
 
-      {/* ถ้าอยากดู raw JSON ด้วย (เอาไว้ดีบัก) */}
-      {/* <details className="border rounded-xl p-4 bg-white">
-        <summary className="cursor-pointer text-sm text-[#3677CA]">
-          Show raw data (debug)
-        </summary>
-        <pre className="mt-3 text-xs overflow-auto">
-          {JSON.stringify(priceData, null, 2)}
-        </pre>
-      </details> */}
+      {/* Status */}
+      {loading && <p className="text-sm text-[#344054]">Loading...</p>}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {/* Chart */}
+      <div className="border rounded-xl bg-white p-3">
+        <div ref={chartContainerRef} className="w-full h-[420px]" />
+      </div>
     </div>
   );
 };
 
-export default Page;
+export default ViewGraphPage;
