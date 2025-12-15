@@ -1,198 +1,315 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import {
-  createChart,
-  CandlestickData,
-  ISeriesApi,
-  Time,
-  CandlestickSeries,
-} from "lightweight-charts";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createChart, CandlestickSeries, Time } from "lightweight-charts";
 
-type PriceCandle = {
-  time: number;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
+type RangeKey = "7D" | "1M" | "1Y" | "ALL";
+type Candle = { time: number; open: number; high: number; low: number; close: number };
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+
+// เลือกช่วงเวลา -> interval ที่เหมาะ (เร็ว + realtime ดี)
+const RANGE_INTERVAL: Record<RangeKey, string> = {
+  "7D": "1h",
+  "1M": "1h",
+  "1Y": "1d",
+  "ALL": "1d",
 };
-
-type PriceApiResponse = {
-  symbol: string;
-  interval: string;
-  limit: number;
-  candles: PriceCandle[];
-};
-
-type RangeKey = "1D" | "7D" | "1M" | "1Y";
-
 const RANGE_LIMIT: Record<RangeKey, number> = {
-  "1D": 1,
-  "7D": 7,
-  "1M": 30,
+  "7D": 7 * 24,
+  "1M": 30 * 24,
   "1Y": 365,
+  "ALL": 1000,
+};
+const WS_STREAM: Record<string, string> = {
+  "1m": "btcusdt@kline_1m",
+  "1h": "btcusdt@kline_1h",
+  "1d": "btcusdt@kline_1d",
 };
 
-const ViewGraphPage = () => {
-  const chartContainerRef = useRef<HTMLDivElement | null>(null);
-  const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
-  const candleSeriesRef = useRef<ISeriesApi<"Candlestick", Time> | null>(null);
+function toSecTime(t: number): Time {
+  return (t > 10_000_000_000 ? Math.floor(t / 1000) : t) as Time; // ms->sec
+}
+
+export default function ViewGraphPage() {
+  const chartRef = useRef<HTMLDivElement | null>(null);
+  const chartApiRef = useRef<ReturnType<typeof createChart> | null>(null);
+  const seriesRef = useRef<any>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
   const [range, setRange] = useState<RangeKey>("1M");
-  const [ohlc, setOhlc] = useState<PriceCandle[]>([]);
+  const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [err, setErr] = useState<string | null>(null);
 
-  // ---------- init chart once ----------
-useEffect(() => {
-  if (!chartContainerRef.current) return;
+  const interval = useMemo(() => RANGE_INTERVAL[range], [range]);
+  const limit = useMemo(() => RANGE_LIMIT[range], [range]);
 
-  const chart = createChart(chartContainerRef.current, {
-    height: 728,
-    layout: {
-      background: { color: "#F0F9FF" },
-      textColor: "#FFFFFF",
-    },
-    grid: {
-      vertLines: { color: "#f2f4f7" },
-      horzLines: { color: "#f2f4f7" },
-    },
-    rightPriceScale: { borderVisible: false },
-    timeScale: { borderVisible: false },
-  });
-
-  chartRef.current = chart;
-
-  candleSeriesRef.current = chart.addSeries(CandlestickSeries, {
-    upColor: "#16a34a",
-    downColor: "#dc2626",
-    wickUpColor: "#16a34a",
-    wickDownColor: "#dc2626",
-    borderVisible: false,
-  });
-
-  const handleResize = () => {
-    if (!chartContainerRef.current || !chartRef.current) return;
-    chartRef.current.applyOptions({
-      width: chartContainerRef.current.clientWidth,
-    });
-  };
-
-  handleResize();
-  window.addEventListener("resize", handleResize);
-
-  return () => {
-    window.removeEventListener("resize", handleResize);
-
-    if (chartRef.current && candleSeriesRef.current) {
-      chartRef.current.removeSeries(candleSeriesRef.current);
-    }
-
-    chart.remove();
-    chartRef.current = null;
-    candleSeriesRef.current = null;
-  };
-}, []);
-
-  // ---------- load data when range changes ----------
+  // init chart once
   useEffect(() => {
-  
-    const load = async () => {
+    if (!chartRef.current) return;
+
+    const chart = createChart(chartRef.current, {
+      height: 500,
+      width: chartRef.current.clientWidth || 900,
+
+      // ✅ เส้นตาราง/ขอบกราฟ
+      grid: {
+        vertLines: { visible: true },
+        horzLines: { visible: true },
+      },
+      rightPriceScale: { borderVisible: true },
+      timeScale: { borderVisible: true, timeVisible: true, secondsVisible: false },
+      crosshair: { vertLine: { visible: true }, horzLine: { visible: true } },
+    });
+
+    chartApiRef.current = chart;
+
+    const series = chart.addSeries(CandlestickSeries);
+    seriesRef.current = series;
+
+    const onResize = () => {
+      if (!chartRef.current) return;
+      chart.applyOptions({ width: chartRef.current.clientWidth });
+    };
+    window.addEventListener("resize", onResize);
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      wsRef.current?.close();
+      chart.remove();
+      chartApiRef.current = null;
+      seriesRef.current = null;
+    };
+  }, []);
+
+  async function fetchCandles(opts?: { endTimeMs?: number; limit?: number }) {
+    const q = new URLSearchParams({
+      symbol: "BTCUSDT",
+      interval,
+      limit: String(Math.min(opts?.limit ?? limit, 1000)),
+    });
+    if (opts?.endTimeMs) q.set("endTime", String(opts.endTimeMs));
+
+    const res = await fetch(`${API_BASE}/api/price?${q.toString()}`);
+    if (!res.ok) throw new Error(`API error ${res.status}`);
+    const json = await res.json();
+    return json.candles as Candle[];
+  }
+
+  const setChartData = (all: Candle[]) => {
+    seriesRef.current?.setData(
+      all.map((c) => ({
+        time: toSecTime(c.time),
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }))
+    );
+  };
+
+  // load for selected range + start realtime
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      setLoading(true);
+      setErr(null);
+
       try {
-        setLoading(true);
-        setError("");
+        wsRef.current?.close();
+        wsRef.current = null;
 
-        const limit = RANGE_LIMIT[range];
+        const data = await fetchCandles({ limit });
+        if (cancelled) return;
 
-        const res = await fetch(
-          `http://localhost:8000/api/price?interval=1d&limit=${limit}`
-        );
+        const sorted = [...data].sort((a, b) => a.time - b.time);
+        setCandles(sorted);
+        setChartData(sorted);
+        chartApiRef.current?.timeScale().fitContent();
 
-        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        // realtime via Binance WS (เร็วสุด)
+        const stream = WS_STREAM[interval] ?? WS_STREAM["1m"];
+        const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${stream}`);
+        wsRef.current = ws;
 
-        const json = (await res.json()) as PriceApiResponse;
-        setOhlc(Array.isArray(json.candles) ? json.candles : []);
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data);
+            const k = msg?.k;
+            if (!k) return;
+
+            const updated: Candle = {
+              time: Number(k.t),
+              open: Number(k.o),
+              high: Number(k.h),
+              low: Number(k.l),
+              close: Number(k.c),
+            };
+
+            seriesRef.current?.update({
+              time: toSecTime(updated.time),
+              open: updated.open,
+              high: updated.high,
+              low: updated.low,
+              close: updated.close,
+            });
+
+            setCandles((prev) => {
+              if (prev.length === 0) return [updated];
+              const last = prev[prev.length - 1];
+              if (last.time === updated.time) {
+                const next = prev.slice();
+                next[next.length - 1] = updated;
+                return next;
+              }
+              return [...prev, updated];
+            });
+          } catch { }
+        };
       } catch (e: any) {
-        setError(e?.message ?? "Failed to load price data");
-        setOhlc([]);
+        if (!cancelled) setErr(e?.message ?? "Fetch failed");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    load();
-  }, [range]);
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [interval, limit]);
 
-  // ---------- update chart data ----------
-  useEffect(() => {
-    if (!candleSeriesRef.current) return;
+  // load more (ย้อนหลังเพิ่ม “สุดลิมิต” ครั้งละ 1000)
+  const loadMore = async () => {
+    if (candles.length === 0) return;
+    setLoading(true);
+    setErr(null);
 
-    const data: CandlestickData<Time>[] = ohlc.map((c) => ({
-      time: Math.floor(c.time / 1000) as Time, // seconds
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-    }));
+    try {
+      const earliest = candles[0].time;
+      const more = await fetchCandles({ endTimeMs: earliest - 1, limit: 1000 });
 
-    candleSeriesRef.current.setData(data);
-    chartRef.current?.timeScale().fitContent();
-  }, [ohlc]);
+      const merged = new Map<number, Candle>();
+      for (const c of [...more, ...candles]) merged.set(c.time, c);
 
-  const last = ohlc.length ? ohlc[ohlc.length - 1] : null;
+      const all = Array.from(merged.values()).sort((a, b) => a.time - b.time);
+      setCandles(all);
+      setChartData(all);
+      chartApiRef.current?.timeScale().fitContent();
+    } catch (e: any) {
+      setErr(e?.message ?? "Load more failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  return (
-    <div className=" justify-center p-6 space-y-4">
-      {/* Header + Range Buttons */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-[#101828]">
-          Predict View (Candlestick)
-        </h1>
+  // ✅ Load ALL (max): ดึงย้อนหลังต่อเนื่อง แล้วเอา “ทั้งหมด” มาแสดงบนกราฟ
+  const loadAllAndShowOnChart = async () => {
+    setLoading(true);
+    setErr(null);
+
+    try {
+      let all = [...candles].sort((a, b) => a.time - b.time);
+
+      if (all.length === 0) {
+        const first = await fetchCandles({ limit: 1000 });
+        all = [...first].sort((a, b) => a.time - b.time);
+        setCandles(all);
+        setChartData(all);
+      }
+
+      let endTime = all[0]?.time ? all[0].time - 1 : undefined;
+
+      const MAX_ROUNDS = 300;     // ✅ เพิ่มได้อีก (300*1000 = 300k แท่ง)
+      const SLEEP_MS = 120;       // ✅ เร็วขึ้นหน่อย
+      const UPDATE_EVERY = 5;     // ✅ อัปเดตกราฟทุก 5 รอบ
+
+      for (let i = 0; i < MAX_ROUNDS; i++) {
+        if (!endTime) break;
+
+        const more = await fetchCandles({ endTimeMs: endTime, limit: 1000 });
+        if (!more || more.length === 0) break;
+
+        const merged = new Map<number, Candle>();
+        for (const c of [...more, ...all]) merged.set(c.time, c);
+        all = Array.from(merged.values()).sort((a, b) => a.time - b.time);
+
+        endTime = all[0].time - 1;
+
+        // ✅ ไม่ต้อง set chart ทุกครั้ง (กันกระตุก)
+        if (i % UPDATE_EVERY === 0) {
+          setCandles(all);
+          setChartData(all);
+        }
+
+        await new Promise((r) => setTimeout(r, SLEEP_MS));
+      }
+
+      // ✅ อัปเดตรอบสุดท้าย + fitContent ครั้งเดียว
+      setCandles(all);
+      setChartData(all);
+      chartApiRef.current?.timeScale().fitContent();
+    } catch (e: any) {
+      setErr(e?.message ?? "Load ALL failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  return (<div>
+    <div className="w-full p-4 space-y-3">
+
+      <div className="flex items-center gap-2">
+
+        <button
+          onClick={loadMore}
+          className="px-3 py-1 rounded-lg border ml-auto"
+          disabled={loading}
+          title="ดึงย้อนหลังเพิ่ม (ครั้งละ 1000 แท่ง)"
+        >
+          {loading ? "Loading..." : "Load more (1000)"}
+        </button>
+
+        <button
+          onClick={loadAllAndShowOnChart}
+          className="px-3 py-1 rounded-lg border"
+          disabled={loading}
+          title="ดึงย้อนหลังต่อเนื่อง (ครั้งละ 1000) แล้วเอาทั้งหมดไปแสดงบนกราฟ"
+        >
+          {loading ? "Loading..." : "Load ALL (max)"}
+        </button>
       </div>
-      {/* Status */}
-      {loading && <p className="text-sm text-[#344054]">Loading...</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {/* Chart */}
-      <div className="border rounded-xl bg-[#0B1120] pt-6 mt-12">
-        <div ref={chartContainerRef} className="w-full h-[728px]" />
+      {err && <div className="text-red-500 text-sm">❌ {err}</div>}
+
+   
       </div>
+         <div className="relative w-full border rounded-xl p-2">
+        {/* ตัวกราฟ */}
+        <div ref={chartRef} className="w-full" />
 
-      <div className="flex justify-between gap-2">
-        {last && (
-          <div className="flex gap-6 text-sm text-white">
-            <div>
-              Open: <b>{last.open.toLocaleString()}</b>
-            </div>
-            <div>
-              High: <b>{last.high.toLocaleString()}</b>
-            </div>
-            <div>
-              Low: <b>{last.low.toLocaleString()}</b>
-            </div>
-            <div>
-              Close: <b>{last.close.toLocaleString()}</b>
-            </div>
+        {/* ✅ ปุ่มเลือก range (ขวาล่าง) */}
+
+      </div>  
+      <div>
+      <div className="flex gap-1.5 backdrop-blur rounded-lg shadow px-2 py-2 justify-end ">
+        {(["7D", "1M", "1Y", "ALL"] as RangeKey[]).map((k) => (
+          <div className=" bg-white rounded-lg w-8 h-8">
+          <button
+            key={k} 
+            onClick={() => setRange(k)}
+            className={`w-8 h-8 text-xs rounded  
+          ${range === k ? " text-white bg-[#34D399] bg-rounded-lg ": "hover:bg-gray-200"}`}
+          >
+            {k}  
+          </button>
           </div>
-        )}
-        <div className="flex gap-2">
-          {(["1D", "7D", "1M", "1Y"] as RangeKey[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className={`px-4 py-1 rounded-full text-sm font-medium 
-                ${
-                  range === r
-                    ? "bg-[#4395FC] text-white"
-                    : "border border-[#4395FC] text-[#3677CA]"
-                }`}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
+        ))}
+      </div>
       </div>
     </div>
   );
-};
-
-export default ViewGraphPage;
+}

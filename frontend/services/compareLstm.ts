@@ -80,7 +80,8 @@ export async function fetchActualCandles(params?: {
 
 export async function fetchLstmCompareSeries(candles: Candle[]): Promise<ComparePoint[]> {
   const mlBase = process.env.NEXT_PUBLIC_ML_API;
-  if (!mlBase) throw new Error("Missing env: NEXT_PUBLIC_ML_API");
+/*   if (!mlBase) throw new Error("Missing env: NEXT_PUBLIC_ML_API"); */
+ console.log(mlBase)
 
   const res = await fetch(`${mlBase}/compare/lstm`, {
     method: "POST",

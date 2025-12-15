@@ -47,20 +47,20 @@ export default function Navbar() {
       <div>
         <Link
           href="/"
-          className="text-lg font-medium text-gray-400 hover:text-accent transition-colors mr-10"
+           className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
         >
           {" "}
           Home
         </Link>
         <Link
           href="/predictView"
-          className="text-lg font-medium text-gray-400 hover:text-accent transition-colors mr-10"
+ className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
         >
           Predict
         </Link>
         <Link
-          href="/News"
-          className="text-lg font-medium text-gray-400 hover:text-accent transition-colors mr-10"
+          href="/news"
+ className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
         >
           News
         </Link>
@@ -103,8 +103,8 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="hover:text-white transition-colors flex items-center gap-1"
-            >
+            className="bg-accent text-navy-950 px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20 flex items-center gap-2">
+            
               <LogIn size={16} /> Login
             </Link>
             <Link

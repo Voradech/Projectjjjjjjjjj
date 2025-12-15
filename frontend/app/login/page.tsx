@@ -22,7 +22,7 @@ const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
 
   return (
  
-      <div className="flex justify-center items-center min-h-[60vh]">
+      <div className="flex justify-center items-center min-h-[60vh] pt-24">
         <div className="bg-[#151e32] border border-[#1E293B] p-8 rounded-2xl shadow-2xl w-full max-w-md">
           <h1 className="text-2xl font-bold text-white text-center mb-6 flex justify-center items-center gap-2">
             <LogIn className="text-accent" /> Member Login

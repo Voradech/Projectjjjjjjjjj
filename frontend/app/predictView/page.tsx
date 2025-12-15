@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createChart, IChartApi, LineSeries,UTCTimestamp } from "lightweight-charts";
 import {
-  fetchActualCandles,
-  fetchLstmCompareSeries,
-} from "@/services/compareLstm";
+  createChart,
+  IChartApi,
+  LineSeries,
+  CandlestickSeries,
+  UTCTimestamp,
+} from "lightweight-charts";
+import { fetchActualCandles, fetchLstmCompareSeries } from "@/services/compareLstm";
 
 export default function PredictView() {
   const chartRef = useRef<HTMLDivElement | null>(null);
@@ -23,43 +26,57 @@ export default function PredictView() {
     if (!chartRef.current) return;
 
     const chart = createChart(chartRef.current, {
-      height: 728,
-      width: chartRef.current.clientWidth || 900,
+      height: 550,
+      width: chartRef.current.clientWidth || 800,
     });
     chartApiRef.current = chart;
 
-    // ✅ v5: addSeries(LineSeries)
-    const actualSeries = chart.addSeries(LineSeries, { 
-      title: "Actual",
-      color: "#2563eb",     // น้ำเงิน (Actual)
-      lineWidth: 2,
+    // ✅ Actual = Candlestick
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: "#22c55e",
+      downColor: "#ef4444",
+      wickUpColor: "#22c55e",
+      wickDownColor: "#ef4444",
+      borderVisible: false,
     });
-    const predSeries = chart.addSeries(LineSeries, { 
-      title: "LSTM",  
-      color: "#f97316",     // ส้ม (LSTM)
-    lineWidth: 2,
-    lineStyle: 2,         // เส้นประ (ช่วยแยกชัด)
-  }); 
+
+    // ✅ LSTM = Line
+    const predSeries = chart.addSeries(LineSeries, {
+      title: "LSTM",
+      color: "#000080",
+      lineWidth: 2,
+      lineStyle: 2, // dashed
+    });
+
     const run = async () => {
       try {
         setErr(null);
         setLoading(true);
 
+        // 1) ดึง Actual candles (OHLCV)
         const candles = await fetchActualCandles(query);
+
+        // 2) ส่งเข้า FastAPI เพื่อได้ predicted series
         const series = await fetchLstmCompareSeries(candles);
 
-        const actualData = series.map((d) => ({
-          time: Math.floor(d.time) as UTCTimestamp,
-          value: Number(d.actual_close),
-        }));
+        // ✅ set candlestick (ใช้ candles จริง)
+        candleSeries.setData(
+          candles.map((c) => ({
+            time: Math.floor(c.time) as UTCTimestamp,
+            open: Number(c.open),
+            high: Number(c.high),
+            low: Number(c.low),
+            close: Number(c.close),
+          }))
+        );
 
-        const predData = series.map((d) => ({
-          time: Math.floor(d.time) as UTCTimestamp,
-          value: Number(d.predicted_close),
-        }));
-
-        actualSeries.setData(actualData);
-        predSeries.setData(predData);
+        // ✅ set LSTM line (ใช้ series ที่ได้กลับมา)
+        predSeries.setData(
+          series.map((d) => ({
+            time: Math.floor(d.time) as UTCTimestamp,
+            value: Number(d.predicted_close),
+          }))
+        );
 
         chart.timeScale().fitContent();
       } catch (e: any) {
@@ -86,12 +103,10 @@ export default function PredictView() {
   }, [query]);
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">LSTM vs Actual</h1>
-        <div className="text-sm opacity-80">
-          {loading ? "Loading..." : "Ready"}
-        </div>
+        <h1 className="text-xl font-semibold">LSTM vs Actual (Candlestick)</h1>
+        <div className="text-sm opacity-80">{loading ? "Loading..." : "Ready"}</div>
       </div>
 
       {err && (
@@ -99,12 +114,11 @@ export default function PredictView() {
       )}
 
       <div className="rounded-xl border p-3">
-        {/* ✅ ต้องมีความสูง/กว้างแน่นอน */}
-        <div ref={chartRef} className="w-full h-[728px]" />
+        <div ref={chartRef} className="w-full h-[550px]" />
       </div>
 
       <div className="text-xs opacity-70">
-        * เส้น 1 = Actual Close, เส้น 2 = LSTM Predicted Close
+        * แท่งเทียน = Actual (OHLC) , เส้นประ = LSTM Predicted Close
       </div>
     </div>
   );

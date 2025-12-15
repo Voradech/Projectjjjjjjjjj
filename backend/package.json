@@ -18,13 +18,14 @@
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "node-fetch": "^3.3.2",
+    "node-fetch": "^2.7.0",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.1",
+    "@types/node-fetch": "^2.6.13",
     "nodemon": "^3.1.11",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
