@@ -15,10 +15,10 @@ app.use("/api", router);
 app.use("/api", priceRouter);
 // health check
 app.get("/", (_req, res) => {
-  res.send("Backend is running 🚀");
+  res.send("Backend is running ");
 });
 
 // start
 app.listen(PORT, () => {
-  console.log(`✅ Backend running at http://localhost:${PORT}`);
+  console.log(` Backend running at http://localhost:${PORT}`);
 });
