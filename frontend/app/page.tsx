@@ -285,34 +285,34 @@ export default function ViewGraphPage() {
 
       {err && <div className="text-red-500 text-sm">❌ {err}</div>}
 
-   
-      </div>
-         <div className="relative w-full border rounded-xl p-2">
-        {/* ตัวกราฟ */}
-        <div ref={chartRef} className="w-full" />
 
-        {/* ✅ ปุ่มเลือก range (ขวาล่าง) */}
+    </div>
+    <div className="relative w-full border rounded-xl p-2">
+      {/* ตัวกราฟ */}
+      <div ref={chartRef} className="w-full" />
 
-      </div>  
-      <div>
+      {/* ✅ ปุ่มเลือก range (ขวาล่าง) */}
+
+    </div>
+    <div>
       <div className="flex gap-1.5 backdrop-blur rounded-lg shadow px-2 py-2 justify-end ">
         {(["7D", "1M", "1Y", "ALL"] as RangeKey[]).map((k) => (
           <button
-  key={k}
-  onClick={() => setRange(k)}
-  className={`w-8 h-8 text-xs rounded-lg transition
+            key={k}
+            onClick={() => setRange(k)}
+            className={`w-8 h-8 text-xs rounded-lg transition
     ${range === k
-      ? "bg-[#34D399] text-black"
-      : "bg-white hover:bg-gray-200"
-    }`}
->
-  {k}
-</button>
+                ? "bg-[#34D399] text-black"
+                : "bg-white hover:bg-gray-200"
+              }`}
+          >
+            {k}
+          </button>
 
-         
+
         ))}
       </div>
-      </div>
     </div>
+  </div>
   );
 }

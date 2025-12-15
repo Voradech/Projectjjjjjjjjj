@@ -42,7 +42,7 @@ export default function PredictView() {
 
     // ✅ LSTM = Line
     const predSeries = chart.addSeries(LineSeries, {
-      title: "LSTM",
+      title: "Predict Line",
       color: "#000080",
       lineWidth: 2,
       lineStyle: 2, // dashed
@@ -117,7 +117,7 @@ export default function PredictView() {
         <div ref={chartRef} className="w-full h-[550px]" />
       </div>
 
-      <div className="text-xs opacity-70">
+      <div className="text-xs opacity-70 text-black">
         * แท่งเทียน = Actual (OHLC) , เส้นประ = LSTM Predicted Close
       </div>
     </div>
