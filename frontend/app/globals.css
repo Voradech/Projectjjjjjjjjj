@@ -11,14 +11,15 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
-
+  
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    
   }
 }
 
 body {
-    background-image: radial-gradient(circle at 50% 0%, #0f172a, #020617);
+    background-image: radial-gradient(circle at 50% 0%, #0f172a, #151e32);
 }

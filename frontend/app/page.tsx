@@ -297,16 +297,19 @@ export default function ViewGraphPage() {
       <div>
       <div className="flex gap-1.5 backdrop-blur rounded-lg shadow px-2 py-2 justify-end ">
         {(["7D", "1M", "1Y", "ALL"] as RangeKey[]).map((k) => (
-          <div className=" bg-white rounded-lg w-8 h-8">
           <button
-            key={k} 
-            onClick={() => setRange(k)}
-            className={`w-8 h-8 text-xs rounded  
-          ${range === k ? " text-white bg-[#34D399] bg-rounded-lg ": "hover:bg-gray-200"}`}
-          >
-            {k}  
-          </button>
-          </div>
+  key={k}
+  onClick={() => setRange(k)}
+  className={`w-8 h-8 text-xs rounded-lg transition
+    ${range === k
+      ? "bg-[#34D399] text-black"
+      : "bg-white hover:bg-gray-200"
+    }`}
+>
+  {k}
+</button>
+
+         
         ))}
       </div>
       </div>
