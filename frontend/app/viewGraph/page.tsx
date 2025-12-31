@@ -56,7 +56,7 @@ export default function ViewGraphPage() {
       height: 640,
       width: chartRef.current.clientWidth || 900,
 
-      // ✅ เส้นตาราง/ขอบกราฟ
+      //  เส้นตาราง/ขอบกราฟ
       grid: {
         vertLines: { visible: true },
         horzLines: { visible: true },
@@ -208,7 +208,7 @@ export default function ViewGraphPage() {
     }
   };
 
-  // ✅ Load ALL (max): ดึงย้อนหลังต่อเนื่อง แล้วเอา “ทั้งหมด” มาแสดงบนกราฟ
+  //  Load ALL (max): ดึงย้อนหลังต่อเนื่อง แล้วเอา “ทั้งหมด” มาแสดงบนกราฟ
   const loadAllAndShowOnChart = async () => {
     setLoading(true);
     setErr(null);

@@ -53,7 +53,7 @@ export default function ViewGraphPage() {
       height: 500,
       width: chartRef.current.clientWidth || 900,
 
-      // ✅ เส้นตาราง/ขอบกราฟ
+      //  เส้นตาราง/ขอบกราฟ
       grid: {
         vertLines: { visible: true },
         horzLines: { visible: true },
@@ -205,7 +205,7 @@ export default function ViewGraphPage() {
     }
   };
 
-  // ✅ Load ALL (max): ดึงย้อนหลังต่อเนื่อง แล้วเอา “ทั้งหมด” มาแสดงบนกราฟ
+  // Load ALL (max): ดึงย้อนหลังต่อเนื่อง แล้วเอา “ทั้งหมด” มาแสดงบนกราฟ
   const loadAllAndShowOnChart = async () => {
     setLoading(true);
     setErr(null);
@@ -222,9 +222,9 @@ export default function ViewGraphPage() {
 
       let endTime = all[0]?.time ? all[0].time - 1 : undefined;
 
-      const MAX_ROUNDS = 300;     // ✅ เพิ่มได้อีก (300*1000 = 300k แท่ง)
-      const SLEEP_MS = 120;       // ✅ เร็วขึ้นหน่อย
-      const UPDATE_EVERY = 5;     // ✅ อัปเดตกราฟทุก 5 รอบ
+      const MAX_ROUNDS = 300;     // เพิ่มได้อีก (300*1000 = 300k แท่ง)
+      const SLEEP_MS = 120;       //  เร็วขึ้นหน่อย
+      const UPDATE_EVERY = 5;     //  อัปเดตกราฟทุก 5 รอบ
 
       for (let i = 0; i < MAX_ROUNDS; i++) {
         if (!endTime) break;
@@ -238,7 +238,7 @@ export default function ViewGraphPage() {
 
         endTime = all[0].time - 1;
 
-        // ✅ ไม่ต้อง set chart ทุกครั้ง (กันกระตุก)
+        //  ไม่ต้อง set chart ทุกครั้ง (กันกระตุก)
         if (i % UPDATE_EVERY === 0) {
           setCandles(all);
           setChartData(all);
@@ -247,7 +247,7 @@ export default function ViewGraphPage() {
         await new Promise((r) => setTimeout(r, SLEEP_MS));
       }
 
-      // ✅ อัปเดตรอบสุดท้าย + fitContent ครั้งเดียว
+      //  อัปเดตรอบสุดท้าย + fitContent ครั้งเดียว
       setCandles(all);
       setChartData(all);
       chartApiRef.current?.timeScale().fitContent();
@@ -291,7 +291,7 @@ export default function ViewGraphPage() {
       {/* ตัวกราฟ */}
       <div ref={chartRef} className="w-full" />
 
-      {/* ✅ ปุ่มเลือก range (ขวาล่าง) */}
+      {/* ปุ่มเลือก range (ขวาล่าง) */}
 
     </div>
     <div>

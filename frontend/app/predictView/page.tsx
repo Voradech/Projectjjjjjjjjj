@@ -31,7 +31,7 @@ export default function PredictView() {
     });
     chartApiRef.current = chart;
 
-    // ✅ Actual = Candlestick
+    //  Actual = Candlestick
     const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor: "#22c55e",
       downColor: "#ef4444",
@@ -40,7 +40,7 @@ export default function PredictView() {
       borderVisible: false,
     });
 
-    // ✅ LSTM = Line
+    //  LSTM = Line
     const predSeries = chart.addSeries(LineSeries, {
       title: "Predict Line",
       color: "#000080",
@@ -59,7 +59,7 @@ export default function PredictView() {
         // 2) ส่งเข้า FastAPI เพื่อได้ predicted series
         const series = await fetchLstmCompareSeries(candles);
 
-        // ✅ set candlestick (ใช้ candles จริง)
+        //  set candlestick (ใช้ candles จริง)
         candleSeries.setData(
           candles.map((c) => ({
             time: Math.floor(c.time) as UTCTimestamp,
@@ -70,7 +70,7 @@ export default function PredictView() {
           }))
         );
 
-        // ✅ set LSTM line (ใช้ series ที่ได้กลับมา)
+        //  set LSTM line (ใช้ series ที่ได้กลับมา)
         predSeries.setData(
           series.map((d) => ({
             time: Math.floor(d.time) as UTCTimestamp,
@@ -88,7 +88,7 @@ export default function PredictView() {
 
     run();
 
-    // ✅ resize on window resize
+    //  resize on window resize
     const onResize = () => {
       if (!chartRef.current) return;
       chart.applyOptions({ width: chartRef.current.clientWidth });

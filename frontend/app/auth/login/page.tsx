@@ -1,6 +1,5 @@
 "use client";
 import { useState } from 'react';
-import axios from 'axios';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -10,14 +9,8 @@ export default function Login() {
   const [form, setForm] = useState({ username: '', password: '' });
   const router = useRouter();
 
-const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post('http://localhost:5000/api/login', form);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      alert('Welcome back!');
-      router.push('/');
-    } catch (err) { alert('Login Failed'); }
+const handleLogin = async () => {
+
   };
 
   return (

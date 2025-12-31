@@ -102,13 +102,13 @@ export default function Navbar() {
         ) : (
           <div className="flex items-center gap-3">
             <Link
-              href="/login"
+              href="/auth/login"
             className="bg-accent text-navy-950 px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20 flex items-center gap-2">
             
               <LogIn size={16} /> Login
             </Link>
             <Link
-              href="/register"
+              href="/auth/register"
               className="bg-accent text-navy-950 px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
             >
               Sign Up
