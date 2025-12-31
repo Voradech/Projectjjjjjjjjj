@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, Lock, User, Mail} from "lucide-react";
+import { UserPlus, User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function Register() {
   const [form, setForm] = useState({
@@ -10,9 +10,9 @@ export default function Register() {
     email: "",
     confirmPassword: "",
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
-  const [showconfirmPassword, setShowconfirmPassword ]=useState(false);
+  const [showconfirmPassword, setShowconfirmPassword] = useState(false);
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -21,7 +21,12 @@ export default function Register() {
     e.preventDefault();
     setError("");
     //  basic validate
-    if (!form.username || !form.email || !form.password || !form.confirmPassword) {
+    if (
+      !form.username ||
+      !form.email ||
+      !form.password ||
+      !form.confirmPassword
+    ) {
       setError("Please fill in all fields.");
       return;
     }
@@ -87,46 +92,60 @@ export default function Register() {
           <div className="relative">
             <Lock className="absolute left-3 top-4 text-gray-500" size={18} />
             <input
-              type="password"
-              value={form.password}
+              type={showPassword ? "text" : "password"}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               className="w-full bg-[#0B1120] border border-[#1E293B] pl-10 p-3 rounded-lg text-white focus:border-accent outline-none"
               placeholder="Enter Password"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-3 top-4 text-gray-400 hover:text-white"
+            >
+              {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+            </button>
           </div>
 
           <div className="relative">
             <Lock className="absolute left-3 top-4 text-gray-500" size={18} />
             <input
-              type="password"
+              type={showconfirmPassword ? "text" : "password"}
               value={form.confirmPassword}
-              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, confirmPassword: e.target.value })
+              }
               className="w-full bg-[#0B1120] border border-[#1E293B] pl-10 p-3 rounded-lg text-white focus:border-accent outline-none"
               placeholder="Confirm Password"
             />
+            <button
+              type="button"
+              onClick={() => setShowconfirmPassword((v) => !v)}
+              className="absolute right-3 top-4 text-gray-400 hover:text-white"
+            >
+              {showconfirmPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+            </button>
           </div>
 
           <div className="relative">
-            <Mail className="absolute left-3 top-4 text-gray-500" size={18}/>
+            <Mail className="absolute left-3 top-4 text-gray-500" size={18} />
             <input
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               className="w-full bg-[#0B1120] border border-[#1E293B] pl-10 p-3 rounded-lg text-white focus:border-accent outline-none"
               placeholder="Enter Email"
-
             />
-            
           </div>
 
           {error && <p className="text-red-400 text-sm">{error}</p>}
-
-          <button
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-lg disabled:opacity-60"
-          >
-            {loading ? "Signing up..." : "SIGN UP"}
-          </button>
+          <div className="pt-2">
+            <button
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-lg disabled:opacity-60"
+            >
+              {loading ? "Signing up..." : "SIGN UP"}
+            </button>
+          </div>
         </form>
       </div>
     </div>
