@@ -3,6 +3,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserPlus, User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
+
+type RegisterPayload = {
+  username: string;
+  email: string;
+  password: string;
+};
+
 export default function Register() {
   const [form, setForm] = useState({
     username: "",
@@ -20,6 +27,7 @@ export default function Register() {
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
+
     //  basic validate
     if (
       !form.username ||
@@ -47,6 +55,7 @@ export default function Register() {
       const res = await fetch("http://localhost:8000/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           username: form.username,
           email: form.email,
@@ -93,6 +102,7 @@ export default function Register() {
             <Lock className="absolute left-3 top-4 text-gray-500" size={18} />
             <input
               type={showPassword ? "text" : "password"}
+              value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               className="w-full bg-[#0B1120] border border-[#1E293B] pl-10 p-3 rounded-lg text-white focus:border-accent outline-none"
               placeholder="Enter Password"

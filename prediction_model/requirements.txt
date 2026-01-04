@@ -7,5 +7,6 @@ uvicorn[standard]
 requests
 ccxt
 matplotlib
-xgboostz
+xgboost
 yfinance
+tensorflow

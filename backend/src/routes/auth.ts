@@ -7,7 +7,7 @@ import {
   signRefreshToken,
   verifyRefreshToken,
 } from "../utils/jwt";
-import { authRequired } from "../middlewar/authRequired";
+import { authRequired } from "../middlewares/authRequired";
 
 export const authRouter = Router();
 
@@ -61,36 +61,42 @@ authRouter.post("/register", async (req, res) => {
  * sets: refreshToken cookie (httpOnly)
  */
 authRouter.post("/login", async (req, res) => {
-  const { email, password } = req.body as { email?: string; password?: string };
-  if (!email || !password)
-    return res.status(400).json({ message: "email/password required" });
+  try {
+    const { email, password } = req.body as { email?: string; password?: string };
+    if (!email || !password)
+      return res.status(400).json({ message: "email/password required" });
 
-  const userRes = await pool.query(
-    `SELECT id, email, password_hash FROM users WHERE email=$1`,
-    [email.toLowerCase()]
-  );
+    const userRes = await pool.query(
+      `SELECT id, email, password_hash FROM users WHERE email=$1`,
+      [email.toLowerCase()]
+    );
 
-  const user = userRes.rows[0];
-  if (!user) return res.status(401).json({ message: "Invalid credentials" });
+    const user = userRes.rows[0];
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
-  const ok = await verifyPassword(password, user.password_hash);
-  if (!ok) return res.status(401).json({ message: "Invalid credentials" });
+    const ok = await verifyPassword(password, user.password_hash);
+    if (!ok) return res.status(401).json({ message: "Invalid credentials" });
 
-  const payload = { sub: user.id, email: user.email };
-  const accessToken = signAccessToken(payload);
-  const refreshToken = signRefreshToken(payload);
+    const payload = { sub: user.id, email: user.email };
+    const accessToken = signAccessToken(payload);
+    const refreshToken = signRefreshToken(payload);
 
-  // เก็บ refresh ลง DB แบบ hash
-  const tokenHash = sha256(refreshToken);
-  const days = Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14);
-  await pool.query(
-    `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-     VALUES ($1, $2, NOW() + ($3 || ' days')::interval)`,
-    [user.id, tokenHash, days.toString()]
-  );
+    const tokenHash = sha256(refreshToken);
+    const days = Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14);
 
-  res.cookie("refreshToken", refreshToken, refreshCookieOptions());
-  return res.json({ accessToken });
+    // ใช้ interval แบบ integer ชัวร์กว่า
+    await pool.query(
+      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
+       VALUES ($1, $2, NOW() + ($3 * interval '1 day'))`,
+      [user.id, tokenHash, days]
+    );
+
+    res.cookie("refreshToken", refreshToken, refreshCookieOptions());
+    return res.json({ accessToken });
+  } catch (e) {
+    console.error("LOGIN ERROR:", e);
+    return res.status(500).json({ message: "Server error" });
+  }
 });
 
 /**
@@ -98,18 +104,17 @@ authRouter.post("/login", async (req, res) => {
  * uses refreshToken cookie -> issues new accessToken
  */
 authRouter.post("/refresh", async (req, res) => {
-  const token = req.cookies?.refreshToken as string | undefined;
-  if (!token) return res.status(401).json({ message: "Missing refresh token" });
-
   try {
+    const token = req.cookies?.refreshToken as string | undefined;
+    if (!token) return res.status(401).json({ message: "Missing refresh token" });
+
     const payload = verifyRefreshToken(token);
     if (!payload || typeof payload !== "object") {
       return res.status(401).json({ message: "Invalid refresh token" });
     }
-   /*  const userId = payload.sub; */
+
     const tokenHash = sha256(token);
 
-    // เช็คว่า token นี้ยังอยู่ใน DB และไม่ถูก revoke และไม่หมดอายุ
     const dbRes = await pool.query(
       `SELECT id FROM refresh_tokens
        WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at > NOW()
@@ -121,32 +126,39 @@ authRouter.post("/refresh", async (req, res) => {
       return res.status(401).json({ message: "Refresh token revoked/expired" });
     }
 
-    const newAccess = signAccessToken({
-      sub: payload.sub,
-      email: payload.email,
-    });
+    const newAccess = signAccessToken({ sub: payload.sub, email: payload.email });
     return res.json({ accessToken: newAccess });
-  } catch {
+  } catch (e) {
+    console.error("REFRESH ERROR:", e);
     return res.status(401).json({ message: "Invalid refresh token" });
   }
 });
 
+
 /*  POST /auth/logout
   revoke refresh in DB + clear cookie  */
 authRouter.post("/logout", async (req, res) => {
-  const token = req.cookies?.refreshToken as string | undefined;
+  try {
+    const token = req.cookies?.refreshToken as string | undefined;
 
-  if (token) {
-    const tokenHash = sha256(token);
-    await pool.query(
-      `UPDATE refresh_tokens SET revoked_at=NOW() WHERE token_hash=$1 AND revoked_at IS NULL`,
-      [tokenHash]
-    );
+    if (token) {
+      const tokenHash = sha256(token);
+      await pool.query(
+        `UPDATE refresh_tokens
+         SET revoked_at=NOW()
+         WHERE token_hash=$1 AND revoked_at IS NULL`,
+        [tokenHash]
+      );
+    }
+
+    res.clearCookie("refreshToken", { path: "/" });
+    return res.json({ message: "Logged out" });
+  } catch (e) {
+    console.error("LOGOUT ERROR:", e);
+    return res.status(500).json({ message: "Server error" });
   }
-
-  res.clearCookie("refreshToken", { path: "/" });
-  return res.json({ message: "Logged out" });
 });
+
 
 /**
  * GET /auth/me  (ต้องมี access token)
