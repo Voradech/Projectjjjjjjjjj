@@ -18,7 +18,7 @@ export default function Register() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
- const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -29,12 +29,7 @@ export default function Register() {
     setError("");
 
     //  basic validate
-    if (
-      !form.username ||
-      !form.email ||
-      !form.password ||
-      !form.confirmPassword
-    ) {
+    if (!form.username || !form.email || !form.password || !form.confirmPassword) {
       setError("Please fill in all fields.");
       return;
     }
@@ -52,22 +47,22 @@ export default function Register() {
 
     try {
       setLoading(true);
-      const res = await  fetch(
-  `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
-  {
+      console.log(process.env.NEXT_PUBLIC_API_URL);
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
+        {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            username: form.username,
-            email: form.email,
+            username: form.username.trim(),
+            email: form.email.trim(),
             password: form.password,
           }),
         }
       );
 
       const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
         setError(data?.message || "Register failed.");
         return;
@@ -97,7 +92,7 @@ export default function Register() {
               value={form.username}
               onChange={(e) => setForm({ ...form, username: e.target.value })}
               className="w-full bg-[#0B1120] border border-[#1E293B] pl-10 p-3 rounded-lg text-white focus:border-accent outline-none"
-              placeholder="Enter Username"
+              placeholder="Enter Userusername"
             />
           </div>
 

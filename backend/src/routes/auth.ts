@@ -27,42 +27,46 @@ function refreshCookieOptions() {
   };
 }
 
-/**
- * POST /auth/register
- * body: { email, password }
- */
 authRouter.post("/register", async (req, res) => {
-  const { email, password } = req.body as { email?: string; password?: string };
-  if (!email || !password)
-    return res.status(400).json({ message: "email/password required" });
-
-  const passwordHash = await hashPassword(password);
-
   try {
-    const result = await pool.query(
-      `INSERT INTO users (email, password_hash)
-       VALUES ($1, $2)
-       RETURNING id, email, created_at`,
-      [email.toLowerCase(), passwordHash]
-    );
+    const { email, password, username } = req.body as {
+      email?: string;
+      password?: string;
+      username?: string;
+    };
 
+    if (!email || !password || !username) {
+      return res.status(400).json({ message: "email/password/username required" });
+    }
+
+    const passwordHash = await hashPassword(password);
+
+  const emailNorm = email.trim().toLowerCase();
+
+const result = await pool.query(
+  `INSERT INTO users (email, password_hash, username)
+   VALUES ($1, $2, $3)
+   RETURNING id, email, username, created_at`,
+  [emailNorm, passwordHash, username]
+);
     return res.status(201).json({ user: result.rows[0] });
   } catch (e: any) {
-    if (e.code === "23505")
+    console.error("REGISTER ERROR:", e);
+
+    if (e.code === "23505") {
       return res.status(409).json({ message: "Email already exists" });
+    }
+
     return res.status(500).json({ message: "Server error" });
   }
 });
 
-/**
- * POST /auth/login
- * body: { email, password }
- * returns: { accessToken }
- * sets: refreshToken cookie (httpOnly)
- */
 authRouter.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body as { email?: string; password?: string };
+    const { email, password } = req.body as {
+      email?: string;
+      password?: string;
+    };
     if (!email || !password)
       return res.status(400).json({ message: "email/password required" });
 
@@ -99,14 +103,11 @@ authRouter.post("/login", async (req, res) => {
   }
 });
 
-/**
- * POST /auth/refresh
- * uses refreshToken cookie -> issues new accessToken
- */
 authRouter.post("/refresh", async (req, res) => {
   try {
     const token = req.cookies?.refreshToken as string | undefined;
-    if (!token) return res.status(401).json({ message: "Missing refresh token" });
+    if (!token)
+      return res.status(401).json({ message: "Missing refresh token" });
 
     const payload = verifyRefreshToken(token);
     if (!payload || typeof payload !== "object") {
@@ -126,7 +127,10 @@ authRouter.post("/refresh", async (req, res) => {
       return res.status(401).json({ message: "Refresh token revoked/expired" });
     }
 
-    const newAccess = signAccessToken({ sub: payload.sub, email: payload.email });
+    const newAccess = signAccessToken({
+      sub: payload.sub,
+      email: payload.email,
+    });
     return res.json({ accessToken: newAccess });
   } catch (e) {
     console.error("REFRESH ERROR:", e);
@@ -134,9 +138,6 @@ authRouter.post("/refresh", async (req, res) => {
   }
 });
 
-
-/*  POST /auth/logout
-  revoke refresh in DB + clear cookie  */
 authRouter.post("/logout", async (req, res) => {
   try {
     const token = req.cookies?.refreshToken as string | undefined;
@@ -159,10 +160,6 @@ authRouter.post("/logout", async (req, res) => {
   }
 });
 
-
-/**
- * GET /auth/me  (ต้องมี access token)
- */
 authRouter.get("/me", authRequired, async (req, res) => {
   const user = (req as any).user as { sub: string; email: string };
   return res.json({ id: user.sub, email: user.email });

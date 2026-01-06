@@ -6,13 +6,11 @@ import Link from 'next/link';
 import { Lock, User, LogIn } from 'lucide-react';
 
 export default function Login() {
-  const [form, setForm] = useState({ username: '', password: '' });
+  const [form, setForm] = useState({ username: " ", password: " " });
   const router = useRouter();
 
 const handleLogin = async () => {
-
   };
-
   return (
  
       <div className="flex justify-center items-center min-h-[60vh] pt-24">
