@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { UserPlus, User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 
-
 type RegisterPayload = {
   username: string;
   email: string;
@@ -19,7 +18,8 @@ export default function Register() {
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showconfirmPassword, setShowconfirmPassword] = useState(false);
+ const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [error, setError] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -52,16 +52,19 @@ export default function Register() {
 
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:8000/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          username: form.username,
-          email: form.email,
-          password: form.password,
-        }),
-      });
+      const res = await  fetch(
+  `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
+  {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            username: form.username,
+            email: form.email,
+            password: form.password,
+          }),
+        }
+      );
 
       const data = await res.json().catch(() => ({}));
 
@@ -119,7 +122,7 @@ export default function Register() {
           <div className="relative">
             <Lock className="absolute left-3 top-4 text-gray-500" size={18} />
             <input
-              type={showconfirmPassword ? "text" : "password"}
+              type={showConfirmPassword ? "text" : "password"}
               value={form.confirmPassword}
               onChange={(e) =>
                 setForm({ ...form, confirmPassword: e.target.value })
@@ -129,10 +132,10 @@ export default function Register() {
             />
             <button
               type="button"
-              onClick={() => setShowconfirmPassword((v) => !v)}
+              onClick={() => setShowConfirmPassword((v) => !v)}
               className="absolute right-3 top-4 text-gray-400 hover:text-white"
             >
-              {showconfirmPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+              {showConfirmPassword ? <Eye size={18} /> : <EyeOff size={18} />}
             </button>
           </div>
 
