@@ -211,3 +211,5 @@ Thumbs.db
 # data/
 # model/
 # modelssss/
+
+/generated/prisma
