@@ -1,28 +1,47 @@
 {
-  "random_forest": {
-    "mae": 22630.473321532874,
-    "r2": -0.9713599704631286
+  "t+1": {
+    "horizon": "t+1",
+    "random_forest": {
+      "mae": 22363.411145864007,
+      "r2": -0.9150675588886561
+    },
+    "gradient_boosting": {
+      "mae": 21923.993759330897,
+      "r2": -0.818700844645784
+    },
+    "lstm": {
+      "mae": 8107.659078010106,
+      "r2": 0.7597716397352773
+    }
   },
-  "gradient_boosting": {
-    "mae": 21995.356034478365,
-    "r2": -0.8482389250518223
+  "t+7": {
+    "horizon": "t+7",
+    "random_forest": {
+      "mae": 26933.97949034924,
+      "r2": -1.5876279400564313
+    },
+    "gradient_boosting": {
+      "mae": 27082.021901927463,
+      "r2": -1.5904346802743539
+    },
+    "lstm": {
+      "mae": 9641.933941865806,
+      "r2": 0.6647987033971999
+    }
   },
-  "lstm": {
-    "mae": 5697.739109857622,
-    "r2": 0.8694264655924859,
-    "window_size": 30
-  },
-  "feature_cols": [
-    "open",
-    "high",
-    "low",
-    "volume",
-    "quote_asset_volume",
-    "trades",
-    "taker_buy_base",
-    "taker_buy_quote"
-  ],
-  "target_col": "close_next",
-  "test_size": 0.3,
-  "note": "All models predict next candle's close price (no target leakage)"
+  "t+14": {
+    "horizon": "t+14",
+    "random_forest": {
+      "mae": 25911.19240569853,
+      "r2": -1.3597456113704536
+    },
+    "gradient_boosting": {
+      "mae": 24541.492244136436,
+      "r2": -1.1484260318955224
+    },
+    "lstm": {
+      "mae": 17242.640336052384,
+      "r2": -0.02131525079193164
+    }
+  }
 }
