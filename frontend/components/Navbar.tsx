@@ -64,6 +64,12 @@ export default function Navbar() {
         >
           News
         </Link>
+           <Link
+          href="/alers"
+ className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
+        >
+          Alert
+        </Link>
       </div>
       {/* Menu & Auth */}
       <div className="flex gap-6 text-sm font-medium text-gray-400 items-center">
