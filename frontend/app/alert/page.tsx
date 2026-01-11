@@ -4,7 +4,7 @@ import React from 'react'
 const Alertpage = () => {
   return (
     <div>
-      
+      Alertpage รอทำ
     </div>
   )
 }

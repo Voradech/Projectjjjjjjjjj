@@ -29,7 +29,15 @@ FEATURE_COLS = [
     "trades",
     "taker_buy_base",
     "taker_buy_quote",
+    "close_lag_1",
+    "close_lag_7",
+    "close_lag_14",
+    "return_1d",
+    "ma_7",
+    "ma_14",
+    "vol_7",
 ]
+
 TARGET_COL = "close"
 
 LSTM_WINDOW_SIZE = 30  # ใช้ 30 แท่งทำนายแท่งถัดไป
@@ -55,6 +63,23 @@ df = df.sort_values("date")
 df = df.dropna()
 df = df.drop_duplicates()
 
+# ---------- Feature Engineering ----------
+# Lag features
+df["close_lag_1"] = df["close"].shift(1)
+df["close_lag_7"] = df["close"].shift(7)
+df["close_lag_14"] = df["close"].shift(14)
+
+# Returns
+df["return_1d"] = df["close"].pct_change()
+
+# Moving averages
+df["ma_7"] = df["close"].rolling(window=7).mean()
+df["ma_14"] = df["close"].rolling(window=14).mean()
+
+# Volatility
+df["vol_7"] = df["return_1d"].rolling(window=7).std()
+
+
 # กันพลาด: ensure คอลัมน์ครบ
 missing_cols = [c for c in (["date"] + FEATURE_COLS + [TARGET_COL]) if c not in df.columns]
 if missing_cols:
@@ -64,10 +89,7 @@ if missing_cols:
 print("Creating multi-horizon targets (t+1, t+7, t+14)...")
 for h in HORIZONS:
     df[f"close_t+{h}"] = df["close"].shift(-h)
-
-# ลบแถวที่ target ใด target หนึ่งเป็น NaN
-df = df.dropna(subset=[f"close_t+{h}" for h in HORIZONS])
-
+df = df.dropna()
 
 all_metrics = {}
 
