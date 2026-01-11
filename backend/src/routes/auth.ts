@@ -8,7 +8,7 @@ import {
   verifyRefreshToken,
 } from "../utils/jwt";
 import { authRequired } from "../middlewares/authRequired";
-
+import { JwtPayload } from "jsonwebtoken";
 export const authRouter = Router();
 
 /* ================= utils ================= */
@@ -25,11 +25,7 @@ function refreshCookieOptions() {
     sameSite: isProd ? ("none" as const) : ("lax" as const),
     path: "/",
     maxAge:
-      Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14) *
-      24 *
-      60 *
-      60 *
-      1000,
+      Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14) * 24 * 60 * 60 * 1000,
   };
 }
 
@@ -73,9 +69,10 @@ authRouter.post("/register", async (req, res) => {
 
 authRouter.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body as {
+    const { username, password, role } = req.body as {
       username?: string;
       password?: string;
+      role?: string;
     };
 
     if (!username || !password) {
@@ -83,10 +80,14 @@ authRouter.post("/login", async (req, res) => {
     }
 
     const userRes = await pool.query(
-      `SELECT id, email, password_hash FROM users WHERE username=$1`,
+      `
+  SELECT id, email, role, password_hash
+  FROM users
+  WHERE LOWER(username) = $1
+     OR LOWER(email) = $1
+  `,
       [username.toLowerCase()]
     );
-
     const user = userRes.rows[0];
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -97,7 +98,7 @@ authRouter.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    const payload = { sub: user.id, email: user.email };
+    const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
 
@@ -106,9 +107,16 @@ authRouter.post("/login", async (req, res) => {
        VALUES ($1, $2, NOW() + interval '14 days')`,
       [user.id, sha256(refreshToken)]
     );
-
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 15 * 60 * 1000, // 15 นาที
+    });
     res.cookie("refreshToken", refreshToken, refreshCookieOptions());
-    return res.json({ accessToken });
+
+    return res.json({ role: user.role });
   } catch (e) {
     console.error("LOGIN ERROR:", e);
     return res.status(500).json({ message: "Server error" });
@@ -134,7 +142,7 @@ authRouter.post("/refresh", async (req, res) => {
     const dbRes = await pool.query(
       `SELECT id FROM refresh_tokens
        WHERE token_hash=$1
-         AND revoked_at IS NULL
+         AND revoked_at IS NULL3
          AND expires_at > NOW()
        LIMIT 1`,
       [tokenHash]
@@ -183,7 +191,12 @@ authRouter.post("/logout", async (req, res) => {
 
 /* ================= me ================= */
 
-authRouter.get("/me", authRequired, async (req, res) => {
-  const user = (req as any).user as { sub: string; email: string };
-  return res.json({ id: user.sub, email: user.email });
+authRouter.get("/me", authRequired, (req, res) => {
+  res.json(req.user);
 });
+
+export interface AuthPayload extends JwtPayload {
+  id: string;
+  email: string;
+  role: "admin" | "user";
+}

@@ -37,6 +37,11 @@ const refreshOptions: SignOptions = { expiresIn: ttlToSeconds(refreshTTL) };
 export function signAccessToken(payload: JwtPayload) {
   return jwt.sign(payload, accessSecret, accessOptions);
 }
+export const signToken = (payload: any) => {
+  return jwt.sign(payload, process.env.JWT_SECRET!, {
+    expiresIn: "1d",
+  });
+};
 
 export function signRefreshToken(payload: JwtPayload) {
   return jwt.sign(payload, refreshSecret, refreshOptions);

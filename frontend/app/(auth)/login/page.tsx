@@ -13,59 +13,59 @@ export default function Login() {
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
 
-const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
 
-  if (!form.username.trim() || !form.password.trim()) {
-    setError("กรุณากรอก Username และ Password");
-    return;
-  }
-
-  setError(null);
-  setLoading(true);
-
-  try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        username: form.username,
-        password: form.password,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error || "เข้าสู่ระบบไม่สำเร็จ");
-      setLoading(false);
+    if (!form.username.trim() || !form.password.trim()) {
+      setError("กรุณากรอก Username และ Password");
       return;
     }
 
-    // บันทึก session ลง browser
-    localStorage.setItem("user", JSON.stringify(data));
+    setError(null);
+    setLoading(true);
 
-    setSuccess(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "include", 
+  body: JSON.stringify({
+    username: form.username.toLowerCase(),
+    password: form.password,
+  }),
+});
 
-    // ไปหน้า Home
-    setTimeout(() => {
-      router.push("/");
-    }, 1200);
-  } catch (err) {
-    setError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
-  } finally {
-    setLoading(false);
-  }
-};
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "เข้าสู่ระบบไม่สำเร็จ");
+        setLoading(false);
+        return;
+      }
+      setSuccess(true);
+      setTimeout(() => {
+        if (data.role === "admin") {
+          router.push("/admin/manageUser");
+        } else {
+          router.push("/");
+        }
+      }, 1200);
+    } catch (err) {
+      setError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+    } finally {
+      setLoading(false);
+    }
+  };
   // 3D Card Effect
   const handleMouseMove = (e: any) => {
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
-    cardRef.current.style.transform = `rotateX(${-y / 30}deg) rotateY(${x / 30}deg)`;
+    cardRef.current.style.transform = `rotateX(${-y / 30}deg) rotateY(${
+      x / 30
+    }deg)`;
   };
 
   const handleMouseLeave = () => {
@@ -75,14 +75,13 @@ const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
 
   return (
     <div className="relative min-h-screen flex justify-center items-center overflow-hidden bg-[#020617]">
-
       {/* Dynamic Background Glow */}
       <div className="absolute w-[600px] h-[600px] bg-emerald-500/20 blur-3xl rounded-full animate-pulse -top-20 -left-10" />
       <div className="absolute w-[500px] h-[500px] bg-indigo-500/20 blur-3xl rounded-full animate-pulse bottom-0 right-0" />
 
       {/* Success Overlay */}
       {success && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-xl z-50 transition">
+        <div className="pt-8 absolute inset-0 flex items-center justify-center bg-black/80 backdrop-blur-xl z-50 transition">
           <div className="text-center text-white">
             <CheckCircle2 size={70} className="mx-auto text-emerald-400 mb-4" />
             <p className="text-xl font-bold">เข้าสู่ระบบสำเร็จ</p>
@@ -102,10 +101,12 @@ const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
         </h1>
 
         <form onSubmit={handleLogin} className="space-y-4">
-
           {/* Username */}
           <div className="relative group">
-            <User className="absolute left-3 top-4 text-gray-500 group-focus-within:text-emerald-400 transition" size={18} />
+            <User
+              className="absolute left-3 top-4 text-gray-500 group-focus-within:text-emerald-400 transition"
+              size={18}
+            />
             <input
               type="text"
               onChange={(e) => setForm({ ...form, username: e.target.value })}
@@ -116,7 +117,10 @@ const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
 
           {/* Password */}
           <div className="relative group">
-            <Lock className="absolute left-3 top-4 text-gray-500 group-focus-within:text-emerald-400 transition" size={18} />
+            <Lock
+              className="absolute left-3 top-4 text-gray-500 group-focus-within:text-emerald-400 transition"
+              size={18}
+            />
             <input
               type="password"
               onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -126,9 +130,7 @@ const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
           </div>
 
           {/* Error */}
-          {error && (
-            <p className="text-red-400 text-center text-sm">{error}</p>
-          )}
+          {error && <p className="text-red-400 text-center text-sm">{error}</p>}
 
           {/* Login Button */}
           <button
@@ -142,7 +144,10 @@ const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
 
         <p className="mt-6 text-center text-gray-300 text-sm">
           New here?{" "}
-          <Link href="/register" className="text-emerald-400 font-semibold hover:underline">
+          <Link
+            href="/register"
+            className="text-emerald-400 font-semibold hover:underline"
+          >
             Sign Up
           </Link>
         </p>

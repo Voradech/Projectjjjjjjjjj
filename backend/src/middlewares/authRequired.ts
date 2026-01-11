@@ -1,15 +1,32 @@
+import jwt from "jsonwebtoken";
 import { Request, Response, NextFunction } from "express";
-import { verifyAccessToken } from "../utils/jwt";
 
-export function authRequired(req: Request, res: Response, next: NextFunction) {
-    const auth = req.headers.authorization;
-    const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
-    if (!token) return res.status(401).json({ message: "Missing access token" });
-    try {
-        const playload = verifyAccessToken(token);
-        (req as any).userId = playload;
-        next();
-    } catch (err) {
-        return res.status(401).json({ message: "Invalid /Expired Token" });
+export const authRequired = (req: Request, res: Response, next: NextFunction) => {
+  const token = req.cookies?.accessToken;
+
+  if (!token) {
+    return res.status(401).json({ message: "No access token" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+
+    if (
+      typeof decoded === "object" &&
+      "sub" in decoded &&
+      "email" in decoded &&
+      "role" in decoded
+    ) {
+      req.user = {
+        id: decoded.sub as string,
+        email: decoded.email as string,
+        role: decoded.role as "admin" | "user",
+      };
+      return next();
     }
-}
+
+    return res.status(401).json({ message: "Invalid token payload" });
+  } catch {
+    return res.status(401).json({ message: "Invalid token" });
+  }
+};

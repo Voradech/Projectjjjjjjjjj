@@ -1,3 +1,7 @@
+import type { JwtPayload } from "jsonwebtoken";
+
+/* ================= Binance types ================= */
+
 // โครงสร้างข้อมูล kline/candlestick ของ Binance
 export type BinanceKline = [
   number, // open time
@@ -11,7 +15,7 @@ export type BinanceKline = [
   number, // number of trades
   string, // taker buy base asset volume
   string, // taker buy quote asset volume
-  string  // ignore
+  string // ignore
 ];
 
 export type PriceCandle = {
@@ -21,3 +25,23 @@ export type PriceCandle = {
   low: number;
   close: number;
 };
+
+/* ================= Auth types ================= */
+
+export interface AuthPayload extends JwtPayload {
+  id: string;
+  email: string;
+  role: "admin" | "user";
+}
+
+/* ================= Express augmentation ================= */
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AuthPayload;
+    }
+  }
+}
+
+export {};

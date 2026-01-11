@@ -10,27 +10,48 @@ import {
   UserCircle,
   LogIn,
 } from "lucide-react";
-
 interface User {
-  username: string;
+  id: string;
+  email: string;
   role: string;
 }
-
 export default function Navbar() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // เช็ค Session เมื่อโหลดหน้าเว็บ
+  // โหลด session จาก backend
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    if (savedUser) setUser(JSON.parse(savedUser));
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+      credentials: "include", 
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("not logged in");
+        return res.json();
+      })
+      .then((data) => {
+        setUser(data);
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
+  const handleLogout = async () => {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+
     setUser(null);
     router.push("/login");
   };
+
+  if (loading) return null; // หรือใส่ skeleton ก็ได้
+
 
   return (
     <nav className="fixed top-0 w-full z-50 bg-[#020617] backdrop-blur-md border-b border-navy-700 px-6 py-4 flex justify-between items-center shadow-lg shadow-black/20">
@@ -47,33 +68,33 @@ export default function Navbar() {
       <div>
         <Link
           href="/"
-           className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
+          className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
         >
           {" "}
           Home
         </Link>
         <Link
           href="/predictView"
- className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
+          className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
         >
           Predict
         </Link>
         <Link
           href="/news"
- className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
+          className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
         >
           News
         </Link>
-           <Link
+        <Link
           href="/alers"
- className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
+          className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
         >
           Alert
         </Link>
       </div>
       {/* Menu & Auth */}
       <div className="flex gap-6 text-sm font-medium text-gray-400 items-center">
-       {/*  <Link
+        {/*  <Link
           href="/"
           className="hover:text-accent flex items-center gap-2 transition-colors"
         >
@@ -96,7 +117,7 @@ export default function Navbar() {
         {user ? (
           <div className="flex items-center gap-4">
             <span className="text-gray-200 flex items-center gap-2 bg-[151e32] px-3 py-1 rounded-full border border[#1E293B]">
-              <UserCircle size={16} className="text-accent" /> {user.username}
+              <UserCircle size={16} className="text-accent" /> {user.id}
             </span>
             <button
               onClick={handleLogout}
@@ -109,8 +130,8 @@ export default function Navbar() {
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-            className="bg-accent text-navy-950 px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20 flex items-center gap-2">
-            
+              className="bg-accent text-navy-950 px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20 flex items-center gap-2"
+            >
               <LogIn size={16} /> Login
             </Link>
             <Link
