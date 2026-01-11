@@ -143,33 +143,34 @@ for h in HORIZONS:
 
     # สร้าง sequences แยกฝั่ง train/test
     X_train_lstm, y_train_lstm = create_sequences(train_X_scaled, train_y_scaled, LSTM_WINDOW_SIZE)
-    # === FIX: ใช้ 30 วันสุดท้ายของ train มาช่วยสร้าง test sequence ===
+   
+    # === FIX: ใช้ 30 วันสุดท้ายของ train + test สำหรับ LSTM test ===
 
-    lstm_test_input_df = pd.concat([
-        train_df.tail(LSTM_WINDOW_SIZE),
-        test_df
-    ]).reset_index(drop=True)
+    # รวม features: 30 วันสุดท้ายของ train + test
+    lstm_test_input_X = pd.concat([
+        train_df[FEATURE_COLS].tail(LSTM_WINDOW_SIZE),
+        test_df[FEATURE_COLS]
+    ])
 
-    # scale X
-    X_lstm_test_scaled = scaler_X_lstm.transform(
-        lstm_test_input_df[FEATURE_COLS].values
-    )
+    # scale X ด้วย scaler ที่ fit จาก train
+    X_lstm_test_scaled = scaler_X_lstm.transform(lstm_test_input_X.values)
 
-    # scale y (เฉพาะเพื่อ evaluation)
-    y_lstm_test_scaled = scaler_y_lstm.transform(
-        lstm_test_input_df[[target_col]].values
-    ).flatten()
+    # สร้าง dummy y (ยาวเท่ากัน) เพื่อใช้สร้าง sequence
+    dummy_y = np.zeros(len(X_lstm_test_scaled))
 
     # สร้าง sequence
-    X_test_lstm_all, y_test_lstm_all = create_sequences(
+    X_test_lstm_all, _ = create_sequences(
         X_lstm_test_scaled,
-        y_lstm_test_scaled,
+        dummy_y,
         LSTM_WINDOW_SIZE
     )
 
     # เอาเฉพาะส่วนที่เป็น test จริง
     X_test_lstm = X_test_lstm_all[-len(test_df):]
-    y_test_lstm = y_test_lstm_all[-len(test_df):]
+
+    # y test (original scale)
+    y_test_lstm_original = test_df[target_col].values
+
 
 
     print("LSTM shapes ->",
@@ -210,7 +211,7 @@ for h in HORIZONS:
 
     # inverse กลับเป็นราคาจริง
     lstm_pred = scaler_y_lstm.inverse_transform(lstm_pred_scaled.reshape(-1, 1)).flatten()
-    y_test_lstm_original = scaler_y_lstm.inverse_transform(y_test_lstm.reshape(-1, 1)).flatten()
+   
 
     lstm_mae = mean_absolute_error(y_test_lstm_original, lstm_pred)
     lstm_r2 = r2_score(y_test_lstm_original, lstm_pred)
