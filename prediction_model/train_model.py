@@ -29,13 +29,7 @@ FEATURE_COLS = [
     "trades",
     "taker_buy_base",
     "taker_buy_quote",
-    "close_lag_1",
-    "close_lag_7",
-    "close_lag_14",
-    "return_1d",
-    "ma_7",
-    "ma_14",
-    "vol_7",
+    "sentiment",
 ]
 
 TARGET_COL = "close"
@@ -62,6 +56,17 @@ df = df.sort_values("date")
 
 df = df.dropna()
 df = df.drop_duplicates()
+# ---------- Load News Sentiment ----------
+SENTIMENT_PATH = os.path.join(BASE_DIR, "data", "btc_sentiment.csv")
+sent_df = pd.read_csv(SENTIMENT_PATH)
+
+sent_df["date"] = pd.to_datetime(sent_df["date"])
+
+# merge ข่าวเข้ากับข้อมูลราคา
+df = df.merge(sent_df, on="date", how="left")
+
+# ถ้าวันไหนไม่มีข่าว → neutral
+df["sentiment"] = df["sentiment"].fillna(0)
 
 # ---------- Feature Engineering ----------
 # Lag features
