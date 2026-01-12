@@ -8,6 +8,8 @@ import alertsRouter from "./routes/alerts";
 import { checkAlerts } from "./jobs/checkAlerts";
 import { Request, Response } from "express";
 import { pool } from "./db/pool";
+import newsRouter from "./routes/new";
+
 const app = express();
 
 app.use(
@@ -42,12 +44,13 @@ app.get("/", async (req: Request, res: Response) => {
     });
   }
 });
+app.use("/api/news", newsRouter);
 
 app.use("/auth", authRouter);
 app.use("/api/alerts", alertsRouter);
-
 app.use("/api", priceRouter);
 app.use("/admin", adminRouter);
+
 
 setInterval(() => {
   checkAlerts().catch(console.error);

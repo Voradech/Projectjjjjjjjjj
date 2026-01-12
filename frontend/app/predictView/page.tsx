@@ -179,15 +179,15 @@ export default function PredictView() {
   // ================= UI =================
   return (
     <div className="p-4 space-y-4">
-      <h1 className="text-xl font-semibold">
+      <h1 className="pt-10 text-xl font-semibold text-white">
         Bitcoin Trend Prediction (Decision Support)
       </h1>
 
-      <div className="flex gap-4 items-center">
+      <div className="flex gap-4 items-center pr-2">
         <select
           value={model}
           onChange={(e) => setModel(e.target.value as ModelType)}
-          className="border rounded px-3 py-1"
+          className="border border-white text-white rounded px-3 py-1"
         >
           <option value="rf">Random Forest</option>
           <option value="gb">Gradient Boosting</option>
@@ -197,7 +197,7 @@ export default function PredictView() {
         <select
           value={horizon}
           onChange={(e) => setHorizon(Number(e.target.value) as Horizon)}
-          className="border rounded px-3 py-1"
+          className="border rounded px-3 py-1 border-white text-white"
         >
           <option value={1}>1 Day</option>
           <option value={7}>7 Days</option>
@@ -218,7 +218,7 @@ export default function PredictView() {
       {trend && signal && changePct !== null && (
         <div className="rounded border p-4 text-white">
           <div className="text-sm opacity-70">
-            Analysis (Next {horizon} days)
+             Next {horizon} days
           </div>
 
           <div
@@ -234,16 +234,12 @@ export default function PredictView() {
           </div>
 
           <div className="mt-1">
-            Trend: <span className="capitalize font-semibold">{trend}</span>
-          </div>
-
-          <div className="text-sm opacity-70">
-            Expected change: {changePct.toFixed(2)}%
+            Trend: <span className="capitalize font-semibold font-bold">{trend}</span>
           </div>
         </div>
       )}
 
-      <div className="rounded-xl border p-3">
+      <div className="rounded-xl border p-3 w-[80%] mx-auto">
         <div ref={chartRef} className="w-full h-[500px]" />
         <div className="text-xs opacity-70 mt-2">
           Candlestick = Actual | Line = Forecasted Trend
