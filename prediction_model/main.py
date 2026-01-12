@@ -1,60 +1,38 @@
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 import os, json, joblib
 import numpy as np
 from tensorflow.keras.models import load_model
 
-# ================== PATH SETUP ==================
+# ================== PATH ==================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "model")
-
 METRICS_PATH = os.path.join(MODEL_DIR, "metrics.json")
-RF_PATH = os.path.join(MODEL_DIR, "random_forest.pkl")
-GB_PATH = os.path.join(MODEL_DIR, "gradient_boosting.pkl")
-SCALER_TREE_PATH = os.path.join(MODEL_DIR, "scaler_X_tree.pkl")
-
-LSTM_PATH = os.path.join(MODEL_DIR, "lstm_model.keras")
-SCALER_X_LSTM_PATH = os.path.join(MODEL_DIR, "scaler_X_lstm.pkl")
-SCALER_Y_LSTM_PATH = os.path.join(MODEL_DIR, "scaler_y_lstm.pkl")
 
 # ================== LOAD METRICS ==================
 if not os.path.exists(METRICS_PATH):
-    raise FileNotFoundError(f"Missing metrics.json at: {METRICS_PATH}")
+    raise FileNotFoundError("metrics.json not found")
 
 with open(METRICS_PATH, "r", encoding="utf-8") as f:
     metrics = json.load(f)
 
 FEATURE_COLS = metrics["feature_cols"]
-WINDOW = int(metrics.get("lstm", {}).get("window_size", 30))
+LSTM_WINDOW = metrics["lstm_window"]
+AVAILABLE_HORIZONS = [1, 7, 14]
 
-# ================== LOAD RF / GB ==================
-if not (os.path.exists(RF_PATH) and os.path.exists(GB_PATH) and os.path.exists(SCALER_TREE_PATH)):
-    raise FileNotFoundError("Missing RF/GB model or scaler files")
-
-rf_model = joblib.load(RF_PATH)
-gb_model = joblib.load(GB_PATH)
-scaler_X_tree = joblib.load(SCALER_TREE_PATH)
-
-# ================== LOAD LSTM ==================
-if not (os.path.exists(LSTM_PATH) and os.path.exists(SCALER_X_LSTM_PATH) and os.path.exists(SCALER_Y_LSTM_PATH)):
-    raise FileNotFoundError("Missing LSTM model or scaler files")
-
-lstm_model = load_model(LSTM_PATH)
-scaler_X_lstm = joblib.load(SCALER_X_LSTM_PATH)
-scaler_y_lstm = joblib.load(SCALER_Y_LSTM_PATH)
-
-# ================== FASTAPI APP ==================
-app = FastAPI(title="Bitcoin Price Prediction API (RF / GB / LSTM)")
-from fastapi.middleware.cors import CORSMiddleware
+# ================== FASTAPI ==================
+app = FastAPI(title="Bitcoin Prediction API (Multi-Horizon)")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Next.js
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
-    allow_methods=["*"],                      # POST / OPTIONS / GET
+    allow_methods=["*"],
     allow_headers=["*"],
 )
+
 # ================== SCHEMAS ==================
 class PriceInput(BaseModel):
     open: float
@@ -65,85 +43,114 @@ class PriceInput(BaseModel):
     trades: float
     taker_buy_base: float
     taker_buy_quote: float
+    sentiment: float = 0.0   # optional (default neutral)
 
-class Candle(BaseModel):
+class Candle(PriceInput):
     time: int
-    open: float
-    high: float
-    low: float
     close: float
-    volume: float
-    quote_asset_volume: float
-    trades: float
-    taker_buy_base: float
-    taker_buy_quote: float
+
+# ================== UTILS ==================
+def load_tree_model(model: str, h: int):
+    model_path = os.path.join(MODEL_DIR, f"{model}+{h}.pkl")
+    scaler_path = os.path.join(MODEL_DIR, f"scaler_X_tree+{h}.pkl")
+
+    if not os.path.exists(model_path):
+        raise HTTPException(404, f"Model not found: {model}+{h}")
+
+    return joblib.load(model_path), joblib.load(scaler_path)
+
+
+def load_lstm(h: int):
+    paths = {
+        "model": f"lstm_model+{h}.keras",
+        "sx": f"scaler_X_lstm+{h}.pkl",
+        "sy": f"scaler_y_lstm+{h}.pkl",
+    }
+    for p in paths.values():
+        if not os.path.exists(os.path.join(MODEL_DIR, p)):
+            raise HTTPException(404, f"Missing LSTM file: {p}")
+
+    return (
+        load_model(os.path.join(MODEL_DIR, paths["model"])),
+        joblib.load(os.path.join(MODEL_DIR, paths["sx"])),
+        joblib.load(os.path.join(MODEL_DIR, paths["sy"])),
+    )
 
 # ================== ROUTES ==================
 @app.get("/")
 def root():
     return {
-        "message": "Backend is running. Go to /docs",
-        "available_models": ["rf", "gb", "lstm"],
+        "models": ["rf", "gb", "lstm"],
+        "horizons": AVAILABLE_HORIZONS,
         "feature_cols": FEATURE_COLS,
-        "lstm_window": WINDOW
+        "lstm_window": LSTM_WINDOW,
     }
 
 @app.get("/metrics")
 def get_metrics():
-    return metrics
+    return metrics["results"]
 
+# ---------- RF / GB ----------
 @app.post("/predict")
-def predict_price(data: PriceInput, model: str = Query("rf", regex="^(rf|gb)$")):
+def predict_tree(
+    data: PriceInput,
+    model: str = Query("rf", regex="^(rf|gb)$"),
+    horizon: int = Query(1),
+):
+    if horizon not in AVAILABLE_HORIZONS:
+        raise HTTPException(400, "Invalid horizon")
+
+    model_name = "random_forest" if model == "rf" else "gradient_boosting"
+    model_obj, scaler = load_tree_model(model_name, horizon)
+
     payload = data.model_dump()
+    X = np.array([[payload[c] for c in FEATURE_COLS]], dtype=float)
+    X_scaled = scaler.transform(X)
 
-    missing = [c for c in FEATURE_COLS if c not in payload]
-    if missing:
-        raise HTTPException(status_code=400, detail=f"Missing features: {missing}")
+    pred = model_obj.predict(X_scaled)[0]
 
-    x = np.array([[payload[c] for c in FEATURE_COLS]], dtype=float)
-    x_scaled = scaler_X_tree.transform(x)
+    return {
+        "model": model,
+        "horizon": f"t+{horizon}",
+        "predicted_close": float(pred),
+    }
 
-    if model == "rf":
-        y_pred = rf_model.predict(x_scaled)[0]
-    else:
-        y_pred = gb_model.predict(x_scaled)[0]
+# ---------- LSTM ----------
+@app.post("/predict/lstm")
+def predict_lstm(
+    rows: List[Candle],
+    horizon: int = Query(1),
+):
+    if horizon not in AVAILABLE_HORIZONS:
+        raise HTTPException(400, "Invalid horizon")
 
-    return {"model": model, "predicted_close": float(y_pred)}
+    if len(rows) <= LSTM_WINDOW:
+        raise HTTPException(400, f"Need > {LSTM_WINDOW} candles")
 
-@app.post("/compare/lstm")
-def compare_lstm(rows: List[Candle]):
-    if len(rows) <= WINDOW:
-        raise HTTPException(status_code=400, detail=f"Need at least {WINDOW + 1} candles")
+    lstm, scaler_X, scaler_y = load_lstm(horizon)
 
-    payloads = [r.model_dump() for r in rows]
-
-    missing = [c for c in FEATURE_COLS if c not in payloads[0]]
-    if missing:
-        raise HTTPException(status_code=400, detail=f"Missing columns in payload: {missing}")
-
-    X_raw = np.array([[p[c] for c in FEATURE_COLS] for p in payloads], dtype=float)
-    X_scaled = scaler_X_lstm.transform(X_raw)
+    raw = np.array([[r.model_dump()[c] for c in FEATURE_COLS] for r in rows])
+    X_scaled = scaler_X.transform(raw)
 
     X_seq = []
-    for i in range(WINDOW, len(X_scaled)):
-        X_seq.append(X_scaled[i - WINDOW:i])
+    for i in range(LSTM_WINDOW, len(X_scaled)):
+        X_seq.append(X_scaled[i - LSTM_WINDOW:i])
+
     X_seq = np.array(X_seq)
 
-    pred_scaled = lstm_model.predict(X_seq, verbose=0)
-    pred = scaler_y_lstm.inverse_transform(pred_scaled).flatten()
-
-    series = []
-    for i, p in enumerate(pred):
-        idx = i + WINDOW
-        series.append({
-            "time": rows[idx].time,
-            "actual_close": float(rows[idx].close),
-            "predicted_close": float(p)
-        })
+    pred_scaled = lstm.predict(X_seq, verbose=0)
+    pred = scaler_y.inverse_transform(pred_scaled).flatten()
 
     return {
         "model": "lstm",
-        "window_size": WINDOW,
-        "points": len(series),
-        "series": series
+        "horizon": f"t+{horizon}",
+        "points": len(pred),
+        "series": [
+            {
+                "time": rows[i + LSTM_WINDOW].time,
+                "actual_close": rows[i + LSTM_WINDOW].close,
+                "predicted_close": float(pred[i]),
+            }
+            for i in range(len(pred))
+        ],
     }
