@@ -20,9 +20,9 @@ export default function AlertPage() {
       });
 
       if (!res.ok) throw new Error("request failed");
-      setMessage("✅ ตั้งแจ้งเตือนเรียบร้อยแล้ว");
+      setMessage(" ตั้งแจ้งเตือนเรียบร้อยแล้ว");
     } catch (err) {
-      setMessage("❌ ไม่สามารถเชื่อมต่อ backend ได้");
+      setMessage("ไม่สามารถเชื่อมต่อ backend ได้");
     }
   };
 

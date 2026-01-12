@@ -18,10 +18,20 @@ if not os.path.exists(METRICS_PATH):
 with open(METRICS_PATH, "r", encoding="utf-8") as f:
     metrics = json.load(f)
 
-FEATURE_COLS = metrics["feature_cols"]
-LSTM_WINDOW = metrics["lstm_window"]
-HORIZONS = [1, 7, 14]
+FEATURE_COLS = [
+    "open",
+    "high",
+    "low",
+    "volume",
+    "quote_asset_volume",
+    "trades",
+    "taker_buy_base",
+    "taker_buy_quote",
+    "sentiment",
+]
 
+LSTM_WINDOW = 30
+HORIZONS = [1, 7, 14]
 # ================= FASTAPI =================
 app = FastAPI(title="Bitcoin Prediction API (Multi-Horizon)")
 
@@ -75,17 +85,16 @@ def root():
         "feature_cols": FEATURE_COLS,
         "lstm_window": LSTM_WINDOW,
     }
-
 @app.get("/metrics")
 def get_metrics():
-    return metrics["results"]
+    return metrics
 
 # ---------- RF / GB ----------
 @app.post("/predict")
 def predict_tree(
     data: PriceInput,
     model: str = Query("rf", regex="^(rf|gb)$"),
-    horizon: int = Query(1),
+    horizon: int = Query(1),    
 ):
     if horizon not in HORIZONS:
         raise HTTPException(400, "Invalid horizon")
@@ -141,4 +150,58 @@ def predict_lstm(
             }
             for i in range(len(pred))
         ],
+    }
+
+@app.post("/predict/lstm/recursive")
+def predict_lstm_recursive(
+    rows: List[Candle],
+    steps: int = Query(7),
+):
+    if steps < 1 or steps > 14:
+        raise HTTPException(400, "steps must be 1-14")
+    if len(rows) <= LSTM_WINDOW:
+        raise HTTPException(400, f"Need > {LSTM_WINDOW} candles")
+
+    # ใช้ horizon = 1 เสมอ
+    lstm, scaler_X, scaler_y = load_lstm(1)
+
+    data = rows.copy()
+    results = []
+
+    for step in range(steps):
+        raw = np.array([[r.model_dump()[c] for c in FEATURE_COLS] for r in data])
+        X_scaled = scaler_X.transform(raw)
+
+        X_seq = np.array([X_scaled[-LSTM_WINDOW:]])
+        pred_scaled = lstm.predict(X_seq, verbose=0)
+        pred = scaler_y.inverse_transform(pred_scaled)[0][0]
+
+        last = data[-1]
+        next_time = last.time + 86400  # +1 day
+
+        # สร้าง candle ใหม่จากค่าที่ทำนาย
+        new_candle = Candle(
+            time=next_time,
+            open=pred,
+            high=pred,
+            low=pred,
+            close=pred,
+            volume=last.volume,
+            quote_asset_volume=last.quote_asset_volume,
+            trades=last.trades,
+            taker_buy_base=last.taker_buy_base,
+            taker_buy_quote=last.taker_buy_quote,
+            sentiment=last.sentiment,
+        )
+
+        data.append(new_candle)
+        results.append({
+            "time": next_time,
+            "predicted_close": float(pred),
+        })
+
+    return {
+        "model": "lstm_recursive",
+        "steps": steps,
+        "series": results,
     }

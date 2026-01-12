@@ -21,8 +21,8 @@ function refreshCookieOptions() {
   const isProd = process.env.NODE_ENV === "production";
   return {
     httpOnly: true,
-    secure: isProd, // prod ต้อง https
-    sameSite: isProd ? ("none" as const) : ("lax" as const),
+    secure: false, // prod ต้อง https
+    sameSite: 'lax' as const,
     path: "/",
     maxAge:
       Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14) * 24 * 60 * 60 * 1000,
@@ -141,10 +141,10 @@ authRouter.post("/refresh", async (req, res) => {
 
     const dbRes = await pool.query(
       `SELECT id FROM refresh_tokens
-       WHERE token_hash=$1
-         AND revoked_at IS NULL3
-         AND expires_at > NOW()
-       LIMIT 1`,
+      WHERE token_hash=$1
+        AND revoked_at IS NULL
+        AND expires_at > NOW()
+      LIMIT 1`,
       [tokenHash]
     );
 
@@ -191,10 +191,10 @@ authRouter.post("/logout", async (req, res) => {
 
 /* ================= me ================= */
 
-authRouter.get("/me", authRequired, (req, res) => {
+/* authRouter.get("/me", authRequired, (req, res) => {
   res.json(req.user);
 });
-
+ */
 export interface AuthPayload extends JwtPayload {
   id: string;
   email: string;

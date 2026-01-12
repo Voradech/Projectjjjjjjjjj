@@ -5,7 +5,7 @@ export default function ManageUser() {
   const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/admin/users", {
+    fetch("http://localhost:8000/admin/users", {
       headers: {
         Authorization: `Bearer ${localStorage.getItem("access_token")}`
       }
@@ -36,7 +36,7 @@ export default function ManageUser() {
   };
 
   return (
-    <div>
+    <div className="bg-white">
       <h1>Manage Users</h1>
       <table>
         <thead>
