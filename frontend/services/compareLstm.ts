@@ -78,7 +78,7 @@ export async function fetchActualCandles(params?: {
   return rows.map(normalizeCandle);
 }
 
-export async function fetchLstmCompareSeries(candles: Candle[]): Promise<ComparePoint[]> {
+export async function fetchLstmCompareSeries(candles: Candle[], horizon: number): Promise<ComparePoint[]> {
   const mlBase = process.env.NEXT_PUBLIC_ML_API;
 /*   if (!mlBase) throw new Error("Missing env: NEXT_PUBLIC_ML_API"); */
  console.log(mlBase)

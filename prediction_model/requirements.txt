@@ -10,6 +10,3 @@ matplotlib
 xgboost
 yfinance
 tensorflow
-pandas
-requests 
-vaderSentiment
