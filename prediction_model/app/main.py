@@ -205,3 +205,57 @@ def predict_lstm_recursive(
         "steps": steps,
         "series": results,
     }
+@app.post("/predict/trend")
+def predict_trend(
+    data: PriceInput,
+    horizon: int = Query(7)
+):
+    if horizon not in HORIZONS:
+        raise HTTPException(400, "Invalid horizon")
+
+    model, scaler = load_tree("random_forest", horizon)
+
+    X = np.array([[data.model_dump()[c] for c in FEATURE_COLS]])
+    X_scaled = scaler.transform(X)
+
+    pred = model.predict(X_scaled)[0]
+
+    last_close  = data.open  # หรือ close ล่าสุด
+    future_return = (pred - last_close) / last_close
+
+    trend_score = np.tanh(future_return * 10)
+    confidence = min(abs(trend_score), 1.0)
+
+    return {
+        "trend_score": float(trend_score),
+        "confidence": float(confidence),
+        "horizon": horizon
+    }
+@app.post("/predict/lstm/history")
+def predict_lstm_history(
+    rows: List[Candle],
+):
+    if len(rows) <= LSTM_WINDOW:
+        raise HTTPException(400, "Not enough candles")
+
+    lstm, scaler_X, scaler_y = load_lstm(1)
+
+    raw = np.array([[r.model_dump()[c] for c in FEATURE_COLS] for r in rows])
+    X_scaled = scaler_X.transform(raw)
+
+    preds = []
+
+    for i in range(LSTM_WINDOW, len(X_scaled)):
+        X_seq = np.array([X_scaled[i - LSTM_WINDOW:i]])
+        pred_scaled = lstm.predict(X_seq, verbose=0)
+        pred = scaler_y.inverse_transform(pred_scaled)[0][0]
+
+        preds.append({
+            "time": rows[i].time,
+            "predicted_close": float(pred),
+        })
+
+    return {
+        "model": "lstm_history",
+        "series": preds,
+    }
