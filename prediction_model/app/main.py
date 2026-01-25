@@ -73,8 +73,8 @@ def load_lstm(h: int):
     return (
         load_model(os.path.join(MODEL_DIR, f"lstm_model+{h}.keras")),
         joblib.load(os.path.join(MODEL_DIR, f"scaler_X_lstm+{h}.pkl")),
-        joblib.load(os.path.join(MODEL_DIR, f"scaler_y_lstm+{h}.pkl")),
     )
+
 
 # ================= ROUTES =================
 @app.get("/")
@@ -109,10 +109,11 @@ def predict_tree(
     pred = model_obj.predict(X_scaled)[0]
 
     return {
-        "model": model,
-        "horizon": f"t+{horizon}",
-        "predicted_close": float(pred),
+    "model": model,
+    "horizon": f"t+{horizon}",
+    "trend": "UP" if int(pred) == 1 else "DOWN",
     }
+
 
 # ---------- LSTM ----------
 @app.post("/predict/lstm")
@@ -125,7 +126,7 @@ def predict_lstm(
     if len(rows) <= LSTM_WINDOW:
         raise HTTPException(400, f"Need > {LSTM_WINDOW} candles")
 
-    lstm, scaler_X, scaler_y = load_lstm(horizon)
+    lstm, scaler_X = load_lstm(horizon)
 
     raw = np.array([[r.model_dump()[c] for c in FEATURE_COLS] for r in rows])
     X_scaled = scaler_X.transform(raw)
@@ -135,8 +136,8 @@ def predict_lstm(
         X_seq.append(X_scaled[i - LSTM_WINDOW:i])
     X_seq = np.array(X_seq)
 
-    pred_scaled = lstm.predict(X_seq, verbose=0)
-    pred = scaler_y.inverse_transform(pred_scaled).flatten()
+    probs = lstm.predict(X_seq, verbose=0)
+    pred = np.argmax(probs, axis=1)
 
     return {
         "model": "lstm",
@@ -145,66 +146,13 @@ def predict_lstm(
         "series": [
             {
                 "time": rows[i + LSTM_WINDOW].time,
-                "actual_close": rows[i + LSTM_WINDOW].close,
-                "predicted_close": float(pred[i]),
+                "trend": "UP" if pred[i] == 1 else "DOWN",
+                "confidence": float(np.max(probs[i]))
             }
             for i in range(len(pred))
         ],
     }
 
-@app.post("/predict/lstm/recursive")
-def predict_lstm_recursive(
-    rows: List[Candle],
-    steps: int = Query(7),
-):
-    if steps < 1 or steps > 14:
-        raise HTTPException(400, "steps must be 1-14")
-    if len(rows) <= LSTM_WINDOW:
-        raise HTTPException(400, f"Need > {LSTM_WINDOW} candles")
-
-    # ใช้ horizon = 1 เสมอ
-    lstm, scaler_X, scaler_y = load_lstm(1)
-
-    data = rows.copy()
-    results = []
-
-    for step in range(steps):
-        raw = np.array([[r.model_dump()[c] for c in FEATURE_COLS] for r in data])
-        X_scaled = scaler_X.transform(raw)
-
-        X_seq = np.array([X_scaled[-LSTM_WINDOW:]])
-        pred_scaled = lstm.predict(X_seq, verbose=0)
-        pred = scaler_y.inverse_transform(pred_scaled)[0][0]
-
-        last = data[-1]
-        next_time = last.time + 86400  # +1 day
-
-        # สร้าง candle ใหม่จากค่าที่ทำนาย
-        new_candle = Candle(
-            time=next_time,
-            open=pred,
-            high=pred,
-            low=pred,
-            close=pred,
-            volume=last.volume,
-            quote_asset_volume=last.quote_asset_volume,
-            trades=last.trades,
-            taker_buy_base=last.taker_buy_base,
-            taker_buy_quote=last.taker_buy_quote,
-            sentiment=last.sentiment,
-        )
-
-        data.append(new_candle)
-        results.append({
-            "time": next_time,
-            "predicted_close": float(pred),
-        })
-
-    return {
-        "model": "lstm_recursive",
-        "steps": steps,
-        "series": results,
-    }
 @app.post("/predict/trend")
 def predict_trend(
     data: PriceInput,
@@ -218,44 +166,10 @@ def predict_trend(
     X = np.array([[data.model_dump()[c] for c in FEATURE_COLS]])
     X_scaled = scaler.transform(X)
 
-    pred = model.predict(X_scaled)[0]
-
-    last_close  = data.open  # หรือ close ล่าสุด
-    future_return = (pred - last_close) / last_close
-
-    trend_score = np.tanh(future_return * 10)
-    confidence = min(abs(trend_score), 1.0)
+    pred = int(model.predict(X_scaled)[0])
 
     return {
-        "trend_score": float(trend_score),
-        "confidence": float(confidence),
-        "horizon": horizon
-    }
-@app.post("/predict/lstm/history")
-def predict_lstm_history(
-    rows: List[Candle],
-):
-    if len(rows) <= LSTM_WINDOW:
-        raise HTTPException(400, "Not enough candles")
-
-    lstm, scaler_X, scaler_y = load_lstm(1)
-
-    raw = np.array([[r.model_dump()[c] for c in FEATURE_COLS] for r in rows])
-    X_scaled = scaler_X.transform(raw)
-
-    preds = []
-
-    for i in range(LSTM_WINDOW, len(X_scaled)):
-        X_seq = np.array([X_scaled[i - LSTM_WINDOW:i]])
-        pred_scaled = lstm.predict(X_seq, verbose=0)
-        pred = scaler_y.inverse_transform(pred_scaled)[0][0]
-
-        preds.append({
-            "time": rows[i].time,
-            "predicted_close": float(pred),
-        })
-
-    return {
-        "model": "lstm_history",
-        "series": preds,
+        "trend": "UP" if pred == 1 else "DOWN",
+        "confidence": 0.7,  # RF ไม่มี prob ที่ stable มาก
+        "horizon": f"t+{horizon}"
     }

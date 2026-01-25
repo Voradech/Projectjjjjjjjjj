@@ -9,16 +9,16 @@ import { checkAlerts } from "./jobs/checkAlerts";
 import { Request, Response } from "express";
 import { pool } from "./db/pool";
 import newsRouter from "./routes/new";
-
+import routes from "./route";
 const app = express();
 
 app.use(
-  cors({
+  cors({ 
     origin: "http://localhost:3000",
     credentials: true,
   })
 );
-
+app.use(routes);
 app.use(express.json());
 app.use(cookieParser());
 app.get("/", async (req: Request, res: Response) => {

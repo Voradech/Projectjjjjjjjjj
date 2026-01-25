@@ -2,16 +2,15 @@ import os
 import json
 import numpy as np
 import pandas as pd
+import joblib
 
-from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.preprocessing import MinMaxScaler
-
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
+from sklearn.metrics import confusion_matrix, classification_report,accuracy_score
 
-import joblib
 HORIZONS = [1, 7, 14]
 
 # ---------- config พื้นฐาน ----------
@@ -94,6 +93,10 @@ if missing_cols:
 print("Creating multi-horizon targets (t+1, t+7, t+14)...")
 for h in HORIZONS:
     df[f"close_t+{h}"] = df["close"].shift(-h)
+
+for h in HORIZONS:
+    df[f"trend_t+{h}"] = (df[f"close_t+{h}"] > df["close"]).astype(int)
+
 df = df.dropna()
 
 all_metrics = {}
@@ -102,8 +105,8 @@ for h in HORIZONS:
     print(f"\n==============================")
     print(f" Training horizon t+{h}")
     print(f"==============================")
+    target_col = f"trend_t+{h}"
 
-    target_col = f"close_t+{h}"
 # ---------- 2. แบ่งข้อมูลตามเวลา (70/30) ----------
     split_idx = int(len(df) * (1 - TEST_SIZE))
     train_df = df.iloc[:split_idx].copy()
@@ -125,51 +128,57 @@ for h in HORIZONS:
 
     # ---------- 4. Train Random Forest ----------
     print("\nTraining Random Forest...")
-    rf_model = RandomForestRegressor(
-        n_estimators=200,
-        random_state=42,
-        n_jobs=-1,
+    rf_model = RandomForestClassifier(
+    n_estimators=200,
+    random_state=42,
+    n_jobs=-1,
     )
     rf_model.fit(X_train_scaled, y_train_raw)
     rf_pred = rf_model.predict(X_test_scaled)
 
-    rf_mae = mean_absolute_error(y_test_raw, rf_pred)
-    rf_r2 = r2_score(y_test_raw, rf_pred)
-
-    print(f"Random Forest      MAE: {rf_mae:.4f}, R2: {rf_r2:.4f}")
+    
+    rf_acc = accuracy_score(y_test_raw, rf_pred)
+    print(f"Random Forest (Trend) Accuracy: {rf_acc:.4f}")
 
     # ---------- 5. Train Gradient Boosting ----------
     print("Training Gradient Boosting...")
-    gb_model = GradientBoostingRegressor(
-        n_estimators=200,
-        learning_rate=0.1,
-        max_depth=5,
-        min_samples_split=5,
-        random_state=42,
+    gb_model = GradientBoostingClassifier(
+    n_estimators=200,
+    learning_rate=0.1,
+    max_depth=5,
+    min_samples_split=5,
+    random_state=42,
     )
     gb_model.fit(X_train_scaled, y_train_raw)
     gb_pred = gb_model.predict(X_test_scaled)
 
-    gb_mae = mean_absolute_error(y_test_raw, gb_pred)
-    gb_r2 = r2_score(y_test_raw, gb_pred)
+    gb_acc = accuracy_score(y_test_raw, gb_pred)
+    print(f"Gradient Boosting (Trend) Accuracy: {gb_acc:.4f}")
 
-    print(f"Gradient Boosting  MAE: {gb_mae:.4f}, R2: {gb_r2:.4f}")
+    print("\nRandom Forest Confusion Matrix:")
+    print(confusion_matrix(y_test_raw, rf_pred))
+
+    print("\nRandom Forest Classification Report:")
+    print(classification_report(y_test_raw, rf_pred, target_names=["DOWN", "UP"]))
 
     # ---------- 6. เตรียมข้อมูลสำหรับ LSTM ----------
     print("\nPreparing data for LSTM...")
 
     scaler_X_lstm = MinMaxScaler()
-    scaler_y_lstm = MinMaxScaler()
+   
 
     # Scale features (fit เฉพาะ train)
     train_X_scaled = scaler_X_lstm.fit_transform(train_df[FEATURE_COLS].values)
-    test_X_scaled = scaler_X_lstm.transform(test_df[FEATURE_COLS].values)
 
     # Scale target (fit เฉพาะ train)
-    train_y_scaled = scaler_y_lstm.fit_transform(train_df[[target_col]].values).flatten()
-
+    y_train_lstm = train_df[target_col].values
     # สร้าง sequences แยกฝั่ง train/test
-    X_train_lstm, y_train_lstm = create_sequences(train_X_scaled, train_y_scaled, LSTM_WINDOW_SIZE)
+    X_train_lstm, y_train_lstm = create_sequences(
+    train_X_scaled,
+    y_train_lstm,
+    LSTM_WINDOW_SIZE
+)
+
    
     # === FIX: ใช้ 30 วันสุดท้ายของ train + test สำหรับ LSTM test ===
 
@@ -208,14 +217,19 @@ for h in HORIZONS:
     print("Training LSTM...")
 
     lstm_model = Sequential([
-        LSTM(64, return_sequences=True, input_shape=(LSTM_WINDOW_SIZE, len(FEATURE_COLS))),
-        Dropout(0.2),
-        LSTM(32),
-        Dropout(0.2),
-        Dense(1)
+    LSTM(64, return_sequences=True, input_shape=(LSTM_WINDOW_SIZE, len(FEATURE_COLS))),
+    Dropout(0.2),
+    LSTM(32),
+    Dropout(0.2),
+    Dense(2, activation="softmax")
     ])
 
-    lstm_model.compile(optimizer="adam", loss="mse")
+    lstm_model.compile(
+        optimizer="adam",
+        loss="sparse_categorical_crossentropy",
+        metrics=["accuracy"]
+    )
+
 
     early_stop = EarlyStopping(
         monitor="val_loss",
@@ -233,17 +247,18 @@ for h in HORIZONS:
         verbose=1,
     )
 
-    # ทำนาย (scaled)
-    lstm_pred_scaled = lstm_model.predict(X_test_lstm, verbose=0).flatten()
+    lstm_pred_prob = lstm_model.predict(X_test_lstm, verbose=0)
+    lstm_pred = np.argmax(lstm_pred_prob, axis=1)
 
-    # inverse กลับเป็นราคาจริง
-    lstm_pred = scaler_y_lstm.inverse_transform(lstm_pred_scaled.reshape(-1, 1)).flatten()
-   
 
-    lstm_mae = mean_absolute_error(y_test_lstm_original, lstm_pred)
-    lstm_r2 = r2_score(y_test_lstm_original, lstm_pred)
+    y_test_lstm = test_df[target_col].values
+    lstm_acc = accuracy_score(y_test_lstm, lstm_pred)
 
-    print(f"LSTM              MAE: {lstm_mae:.4f}, R2: {lstm_r2:.4f}")
+
+    print(f"LSTM (Trend) Accuracy: {lstm_acc:.4f}")
+    print(confusion_matrix(y_test_lstm, lstm_pred))
+    print(classification_report(y_test_lstm, lstm_pred, target_names=["DOWN", "UP"]))
+
 
     # ---------- 8. เซฟโมเดล + scalers + metrics ----------
     print("\nSaving models...")
@@ -253,13 +268,12 @@ for h in HORIZONS:
 
     lstm_model.save(os.path.join(MODEL_DIR, f"lstm_model+{h}.keras"))
     joblib.dump(scaler_X_lstm, os.path.join(MODEL_DIR, f"scaler_X_lstm+{h}.pkl"))
-    joblib.dump(scaler_y_lstm, os.path.join(MODEL_DIR, f"scaler_y_lstm+{h}.pkl"))
 
     metrics = {
-        "horizon": f"t+{h}",
-        "random_forest": {"mae": float(rf_mae), "r2": float(rf_r2)},
-        "gradient_boosting": {"mae": float(gb_mae), "r2": float(gb_r2)},
-        "lstm": {"mae": float(lstm_mae), "r2": float(lstm_r2)},
+    "horizon": f"t+{h}",
+    "random_forest": {"accuracy": float(rf_acc)},
+    "gradient_boosting": {"accuracy": float(gb_acc)},
+    "lstm": {"accuracy": float(lstm_acc)},
     }
     all_metrics[f"t+{h}"] = metrics
 
