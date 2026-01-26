@@ -9,13 +9,13 @@ import {
   UTCTimestamp,
   ISeriesApi,
 } from "lightweight-charts";
-import { predictTrend } from "@/services/prediction";
-import { fetchActualCandles } from "@/services/marketdata";
+import { predictTrend,TrendResult } from "@/services/prediction";
+import { fetchActualCandles } from "@/services/marketData";
 
 type ModelType = "rf" | "gb" | "lstm";
 type Horizon = 1 | 7 | 14;
 
-type Trend = "bullish" | "bearish" | "sideways";
+type Trend = "Bullish" | "Bearish" | "sideways";
 type Signal = "BUY" | "SELL" | "HOLD";
 
 export default function PredictView() {
@@ -112,16 +112,12 @@ const runPredict = async () => {
     );
 
     // ----- map result to UI -----
-    const trendMap = {
-      UP: { trend: "bullish", signal: "BUY" },
-      DOWN: { trend: "bearish", signal: "SELL" },
-    } as const;
 
-    if (res.trend) {
-      const mapped = trendMap[res.trend];
-      setTrend(mapped.trend);
-      setSignal(mapped.signal);
-    }
+  if (res?.trend && res?.signal) {
+  setTrend(res.trend === "UP" ? "Bullish" : "Bearish");
+  setSignal(res.signal);
+  }
+
 
     chartApiRef.current.timeScale().fitContent();
   } catch (e: any) {
@@ -172,6 +168,17 @@ const runPredict = async () => {
       {trend && signal && (
         <div className="rounded border p-4 text-white">
           <div className="text-sm opacity-70">Next {horizon} days</div>
+          <div
+            className={`text-3xl font-bold ${
+              trend === "Bullish"
+                ? "text-green-400"
+                : trend === "Bearish"
+                ? "text-red-400"
+                : "text-yellow-300"
+            }`}
+          >
+            {trend}
+          </div>
           <div
             className={`text-3xl font-bold ${
               signal === "BUY"

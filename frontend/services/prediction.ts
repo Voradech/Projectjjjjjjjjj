@@ -24,8 +24,10 @@ export interface Candle extends PriceInput {
 export type TrendResult = {
   model: string;
   horizon: string;
+  signal: "BUY" | "SELL" | "HOLD";
   trend?: "UP" | "DOWN";
   confidence?: number;
+  explain?: string;
   results?: {
     rf: TrendResult;
     gb: TrendResult;
@@ -80,12 +82,13 @@ export async function predictTrend(
     const [rf, gb, lstm] = await Promise.all([
       predictTrend("rf", payload, { horizon }),
       predictTrend("gb", payload, { horizon }),
-      predictTrend("lstm", payload, options),
+      predictTrend("lstm", payload, {horizon} ),
     ]);
 
     return {
       model: "ensemble",
       horizon: `t+${horizon}`,
+      signal: rf.signal,
       results: { rf, gb, lstm },
     };
   }

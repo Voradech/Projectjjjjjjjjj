@@ -107,12 +107,16 @@ def predict_tree(
     X_scaled = scaler.transform(X)
 
     pred = model_obj.predict(X_scaled)[0]
+    trend = "UP" if int(pred) == 1 else "DOWN"
 
     return {
-    "model": model,
-    "horizon": f"t+{horizon}",
-    "trend": "UP" if int(pred) == 1 else "DOWN",
+        "model": model,
+        "horizon": f"t+{horizon}",
+        "trend": trend,
+        "signal": "BUY" if trend == "UP" else "SELL",
+        "confidence": 0.7
     }
+
 
 
 # ---------- LSTM ----------
@@ -139,10 +143,35 @@ def predict_lstm(
     probs = lstm.predict(X_seq, verbose=0)
     pred = np.argmax(probs, axis=1)
 
+    ups = []
+    downs = []
+
+    for i in range(len(pred)):
+        item = {
+            "trend": "UP" if pred[i] == 1 else "DOWN",
+            "confidence": float(np.max(probs[i]))
+        }
+        if item["trend"] == "UP":
+            ups.append(item)
+        else:
+            downs.append(item)
+
+    if len(ups) > len(downs):
+        trend = "UP"
+        signal = "BUY"
+        confidence = float(np.mean([x["confidence"] for x in ups]))
+    else:
+        trend = "DOWN"
+        signal = "SELL"
+        confidence = float(np.mean([x["confidence"] for x in downs]))
+
+    # ---------- final response ----------
     return {
         "model": "lstm",
         "horizon": f"t+{horizon}",
-        "points": len(pred),
+        "trend": trend,
+        "signal": signal,
+        "confidence": round(confidence, 2),
         "series": [
             {
                 "time": rows[i + LSTM_WINDOW].time,
@@ -152,6 +181,8 @@ def predict_lstm(
             for i in range(len(pred))
         ],
     }
+
+
 
 @app.post("/predict/trend")
 def predict_trend(

@@ -4,16 +4,18 @@ import numpy as np
 import pandas as pd
 import joblib
 
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
-from sklearn.metrics import confusion_matrix, classification_report,accuracy_score
 
+
+# ================= CONFIG =================
 HORIZONS = [1, 7, 14]
 
-# ---------- config พื้นฐาน ----------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "data", "BTCDATA_1d_full.csv")
 MODEL_DIR = os.path.join(BASE_DIR, "model")
@@ -31,257 +33,166 @@ FEATURE_COLS = [
     "sentiment",
 ]
 
-TARGET_COL = "close"
-
-LSTM_WINDOW_SIZE = 30  # ใช้ 30 แท่งทำนายแท่งถัดไป
-TEST_SIZE = 0.3        # ทำให้เหมือนกันทั้ง 3 โมเดล
+LSTM_WINDOW_SIZE = 30
+TEST_SIZE = 0.3
 
 
-def create_sequences(X_data, y_data, window):
-    """สร้าง sequences สำหรับ LSTM"""
+# ================= UTILS =================
+def create_sequences(X, y, window):
     X_seq, y_seq = [], []
-    for i in range(window, len(X_data)):
-        X_seq.append(X_data[i - window:i])  # window แท่งก่อนหน้า
-        y_seq.append(y_data[i])             # target ของแท่งถัดไป
+    for i in range(window, len(X)):
+        X_seq.append(X[i - window:i])
+        y_seq.append(y[i])
     return np.array(X_seq), np.array(y_seq)
 
 
-# ---------- 1. โหลด & เตรียมข้อมูล ----------
-print("Loading data from:", DATA_PATH)
+# ================= LOAD DATA =================
+print("Loading data:", DATA_PATH)
 df = pd.read_csv(DATA_PATH)
 
 df["date"] = pd.to_datetime(df["date"])
-df = df.sort_values("date")
+df = df.sort_values("date").dropna().drop_duplicates()
 
-df = df.dropna()
-df = df.drop_duplicates()
-# ---------- Load News Sentiment ----------
-SENTIMENT_PATH = os.path.join(BASE_DIR, "data", "btc_sentiment.csv")
-sent_df = pd.read_csv(SENTIMENT_PATH)
-
+# ---------- Sentiment ----------
+sent_df = pd.read_csv(os.path.join(BASE_DIR, "data", "btc_sentiment.csv"))
 sent_df["date"] = pd.to_datetime(sent_df["date"])
-
-# merge ข่าวเข้ากับข้อมูลราคา
 df = df.merge(sent_df, on="date", how="left")
-
-# ถ้าวันไหนไม่มีข่าว → neutral
 df["sentiment"] = df["sentiment"].fillna(0)
 
-# ---------- Feature Engineering ----------
-# Lag features
-df["close_lag_1"] = df["close"].shift(1)
-df["close_lag_7"] = df["close"].shift(7)
-df["close_lag_14"] = df["close"].shift(14)
 
-# Returns
+# ================= FEATURE ENGINEERING =================
 df["return_1d"] = df["close"].pct_change()
+df["ma_7"] = df["close"].rolling(7).mean()
+df["ma_14"] = df["close"].rolling(14).mean()
+df["vol_7"] = df["return_1d"].rolling(7).std()
 
-# Moving averages
-df["ma_7"] = df["close"].rolling(window=7).mean()
-df["ma_14"] = df["close"].rolling(window=14).mean()
-
-# Volatility
-df["vol_7"] = df["return_1d"].rolling(window=7).std()
-
-
-# กันพลาด: ensure คอลัมน์ครบ
-missing_cols = [c for c in (["date"] + FEATURE_COLS + [TARGET_COL]) if c not in df.columns]
-if missing_cols:
-    raise ValueError(f"Missing columns in CSV: {missing_cols}")
-
-#  แก้ไข Target Leakage: สร้าง target เป็นราคาปิดของแท่งถัดไป
-print("Creating multi-horizon targets (t+1, t+7, t+14)...")
+# ---------- Targets ----------
 for h in HORIZONS:
     df[f"close_t+{h}"] = df["close"].shift(-h)
-
-for h in HORIZONS:
-    df[f"trend_t+{h}"] = (df[f"close_t+{h}"] > df["close"]).astype(int)
+    df[f"return_t+{h}"] = (df[f"close_t+{h}"] - df["close"]) / df["close"]
 
 df = df.dropna()
 
+
+# ================= TRAIN =================
 all_metrics = {}
 
 for h in HORIZONS:
-    print(f"\n==============================")
-    print(f" Training horizon t+{h}")
-    print(f"==============================")
-    target_col = f"trend_t+{h}"
+    print(f"\n========== TRAIN t+{h} ==========")
+    target_col = f"return_t+{h}"
 
-# ---------- 2. แบ่งข้อมูลตามเวลา (70/30) ----------
     split_idx = int(len(df) * (1 - TEST_SIZE))
-    train_df = df.iloc[:split_idx].copy()
-    test_df = df.iloc[split_idx:].copy()
+    train_df = df.iloc[:split_idx]
+    test_df = df.iloc[split_idx:]
 
-    print(f"Train size: {len(train_df)}, Test size: {len(test_df)}")
+    X_train = train_df[FEATURE_COLS].values
+    y_train = train_df[target_col].values
+    X_test = test_df[FEATURE_COLS].values
+    y_test = test_df[target_col].values
 
-    # ---------- 3. เตรียมข้อมูลสำหรับ RF & GB ----------
-    X_train_raw = train_df[FEATURE_COLS].values
-    y_train_raw = train_df[target_col].values
+    # ---------- SCALE ----------
+    scaler_tree = MinMaxScaler()
+    X_train_s = scaler_tree.fit_transform(X_train)
+    X_test_s = scaler_tree.transform(X_test)
 
-    X_test_raw = test_df[FEATURE_COLS].values
-    y_test_raw = test_df[target_col].values
-
-    #  Scale features เพื่อป้องกัน leakage (fit เฉพาะ train)
-    scaler_X_tree = MinMaxScaler()
-    X_train_scaled = scaler_X_tree.fit_transform(X_train_raw)
-    X_test_scaled = scaler_X_tree.transform(X_test_raw)
-
-    # ---------- 4. Train Random Forest ----------
-    print("\nTraining Random Forest...")
-    rf_model = RandomForestClassifier(
-    n_estimators=200,
-    random_state=42,
-    n_jobs=-1,
+    # ---------- Random Forest ----------
+    rf = RandomForestRegressor(
+        n_estimators=200,
+        random_state=42,
+        n_jobs=-1
     )
-    rf_model.fit(X_train_scaled, y_train_raw)
-    rf_pred = rf_model.predict(X_test_scaled)
+    rf.fit(X_train_s, y_train)
+    rf_pred = rf.predict(X_test_s)
 
-    
-    rf_acc = accuracy_score(y_test_raw, rf_pred)
-    print(f"Random Forest (Trend) Accuracy: {rf_acc:.4f}")
+    rf_mae = mean_absolute_error(y_test, rf_pred)
+    rf_rmse = np.sqrt(mean_squared_error(y_test, rf_pred))
 
-    # ---------- 5. Train Gradient Boosting ----------
-    print("Training Gradient Boosting...")
-    gb_model = GradientBoostingClassifier(
-    n_estimators=200,
-    learning_rate=0.1,
-    max_depth=5,
-    min_samples_split=5,
-    random_state=42,
+    print(f"RF  MAE: {rf_mae:.6f} | RMSE: {rf_rmse:.6f}")
+
+    # ---------- Gradient Boosting ----------
+    gb = GradientBoostingRegressor(
+        n_estimators=200,
+        learning_rate=0.1,
+        max_depth=5,
+        random_state=42
     )
-    gb_model.fit(X_train_scaled, y_train_raw)
-    gb_pred = gb_model.predict(X_test_scaled)
+    gb.fit(X_train_s, y_train)
+    gb_pred = gb.predict(X_test_s)
 
-    gb_acc = accuracy_score(y_test_raw, gb_pred)
-    print(f"Gradient Boosting (Trend) Accuracy: {gb_acc:.4f}")
+    gb_mae = mean_absolute_error(y_test, gb_pred)
+    gb_rmse = np.sqrt(mean_squared_error(y_test, gb_pred))
 
-    print("\nRandom Forest Confusion Matrix:")
-    print(confusion_matrix(y_test_raw, rf_pred))
+    print(f"GB  MAE: {gb_mae:.6f} | RMSE: {gb_rmse:.6f}")
 
-    print("\nRandom Forest Classification Report:")
-    print(classification_report(y_test_raw, rf_pred, target_names=["DOWN", "UP"]))
+    # ---------- LSTM ----------
+    scaler_lstm = MinMaxScaler()
+    X_train_lstm = scaler_lstm.fit_transform(train_df[FEATURE_COLS].values)
 
-    # ---------- 6. เตรียมข้อมูลสำหรับ LSTM ----------
-    print("\nPreparing data for LSTM...")
-
-    scaler_X_lstm = MinMaxScaler()
-   
-
-    # Scale features (fit เฉพาะ train)
-    train_X_scaled = scaler_X_lstm.fit_transform(train_df[FEATURE_COLS].values)
-
-    # Scale target (fit เฉพาะ train)
-    y_train_lstm = train_df[target_col].values
-    # สร้าง sequences แยกฝั่ง train/test
-    X_train_lstm, y_train_lstm = create_sequences(
-    train_X_scaled,
-    y_train_lstm,
-    LSTM_WINDOW_SIZE
-)
-
-   
-    # === FIX: ใช้ 30 วันสุดท้ายของ train + test สำหรับ LSTM test ===
-
-    # รวม features: 30 วันสุดท้ายของ train + test
-    lstm_test_input_X = pd.concat([
-        train_df[FEATURE_COLS].tail(LSTM_WINDOW_SIZE),
-        test_df[FEATURE_COLS]
-    ])
-
-    # scale X ด้วย scaler ที่ fit จาก train
-    X_lstm_test_scaled = scaler_X_lstm.transform(lstm_test_input_X.values)
-
-    # สร้าง dummy y (ยาวเท่ากัน) เพื่อใช้สร้าง sequence
-    dummy_y = np.zeros(len(X_lstm_test_scaled))
-
-    # สร้าง sequence
-    X_test_lstm_all, _ = create_sequences(
-        X_lstm_test_scaled,
-        dummy_y,
+    X_train_seq, y_train_seq = create_sequences(
+        X_train_lstm,
+        y_train,
         LSTM_WINDOW_SIZE
     )
 
-    # เอาเฉพาะส่วนที่เป็น test จริง
-    X_test_lstm = X_test_lstm_all[-len(test_df):]
+    lstm_input = pd.concat([
+        train_df[FEATURE_COLS].tail(LSTM_WINDOW_SIZE),
+        test_df[FEATURE_COLS]
+    ])
+    X_test_lstm = scaler_lstm.transform(lstm_input.values)
+    X_test_seq, _ = create_sequences(
+        X_test_lstm,
+        np.zeros(len(X_test_lstm)),
+        LSTM_WINDOW_SIZE
+    )
+    X_test_seq = X_test_seq[-len(test_df):]
 
-    # y test (original scale)
-    y_test_lstm_original = test_df[target_col].values
-
-
-
-    print("LSTM shapes ->",
-        "X_train:", X_train_lstm.shape,
-        "X_test:", X_test_lstm.shape)
-
-    # ---------- 7. สร้าง & เทรน LSTM ----------
-    print("Training LSTM...")
-
-    lstm_model = Sequential([
-    LSTM(64, return_sequences=True, input_shape=(LSTM_WINDOW_SIZE, len(FEATURE_COLS))),
-    Dropout(0.2),
-    LSTM(32),
-    Dropout(0.2),
-    Dense(2, activation="softmax")
+    lstm = Sequential([
+        LSTM(64, return_sequences=True, input_shape=(LSTM_WINDOW_SIZE, len(FEATURE_COLS))),
+        Dropout(0.2),
+        LSTM(32),
+        Dropout(0.2),
+        Dense(1)
     ])
 
-    lstm_model.compile(
+    lstm.compile(
         optimizer="adam",
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"]
+        loss="mse",
+        metrics=["mae"]
     )
 
-
-    early_stop = EarlyStopping(
-        monitor="val_loss",
-        patience=5,
-        restore_best_weights=True,
-    )
-
-    history = lstm_model.fit(
-        X_train_lstm,
-        y_train_lstm,
+    lstm.fit(
+        X_train_seq,
+        y_train_seq,
         validation_split=0.1,
         epochs=50,
         batch_size=32,
-        callbacks=[early_stop],
-        verbose=1,
+        callbacks=[EarlyStopping(patience=5, restore_best_weights=True)],
+        verbose=0
     )
 
-    lstm_pred_prob = lstm_model.predict(X_test_lstm, verbose=0)
-    lstm_pred = np.argmax(lstm_pred_prob, axis=1)
+    lstm_pred = lstm.predict(X_test_seq, verbose=0).flatten()
 
+    lstm_mae = mean_absolute_error(y_test, lstm_pred)
+    lstm_rmse = np.sqrt(mean_squared_error(y_test, lstm_pred))
 
-    y_test_lstm = test_df[target_col].values
-    lstm_acc = accuracy_score(y_test_lstm, lstm_pred)
+    print(f"LSTM MAE: {lstm_mae:.6f} | RMSE: {lstm_rmse:.6f}")
 
+    # ---------- SAVE ----------
+    joblib.dump(rf, os.path.join(MODEL_DIR, f"rf_return+{h}.pkl"))
+    joblib.dump(gb, os.path.join(MODEL_DIR, f"gb_return+{h}.pkl"))
+    joblib.dump(scaler_tree, os.path.join(MODEL_DIR, f"scaler_tree+{h}.pkl"))
+    joblib.dump(scaler_lstm, os.path.join(MODEL_DIR, f"scaler_lstm+{h}.pkl"))
+    lstm.save(os.path.join(MODEL_DIR, f"lstm_return+{h}.keras"))
 
-    print(f"LSTM (Trend) Accuracy: {lstm_acc:.4f}")
-    print(confusion_matrix(y_test_lstm, lstm_pred))
-    print(classification_report(y_test_lstm, lstm_pred, target_names=["DOWN", "UP"]))
-
-
-    # ---------- 8. เซฟโมเดล + scalers + metrics ----------
-    print("\nSaving models...")
-    joblib.dump(rf_model, os.path.join(MODEL_DIR, f"random_forest+{h}.pkl"))
-    joblib.dump(gb_model, os.path.join(MODEL_DIR, f"gradient_boosting+{h}.pkl"))
-    joblib.dump(scaler_X_tree, os.path.join(MODEL_DIR, f"scaler_X_tree+{h}.pkl"))
-
-    lstm_model.save(os.path.join(MODEL_DIR, f"lstm_model+{h}.keras"))
-    joblib.dump(scaler_X_lstm, os.path.join(MODEL_DIR, f"scaler_X_lstm+{h}.pkl"))
-
-    metrics = {
-    "horizon": f"t+{h}",
-    "random_forest": {"accuracy": float(rf_acc)},
-    "gradient_boosting": {"accuracy": float(gb_acc)},
-    "lstm": {"accuracy": float(lstm_acc)},
+    all_metrics[f"t+{h}"] = {
+        "random_forest": {"mae": rf_mae, "rmse": rf_rmse},
+        "gradient_boosting": {"mae": gb_mae, "rmse": gb_rmse},
+        "lstm": {"mae": lstm_mae, "rmse": lstm_rmse},
     }
-    all_metrics[f"t+{h}"] = metrics
-
-print(f"Total samples after target shift: {len(df)}")
 
 
+# ================= SAVE METRICS =================
 with open(os.path.join(MODEL_DIR, "metrics.json"), "w", encoding="utf-8") as f:
     json.dump(all_metrics, f, indent=2, ensure_ascii=False)
 
-print("\n Done! Models and metrics are saved in:", MODEL_DIR)
-    
+print("\n✅ DONE: Return-based price models saved.")
