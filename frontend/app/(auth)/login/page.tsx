@@ -25,29 +25,30 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const res = await fetch(`http://localhost:8000/auth/login`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          username: form.username.toLowerCase(),
+          username: form.username.trim(),
           password: form.password,
         }),
       });
 
       const data = await res.json();
-      console.log(data)
+   
       if (!res.ok) {
-        setError(data.error || "เข้าสู่ระบบไม่สำเร็จ");
+        setError(data.message || "เข้าสู่ระบบไม่สำเร็จ");
         setLoading(false);
         return;
       }
+
       setSuccess(true);
       setTimeout(() => {
         if (data.role === "admin") {
-          router.push("/admin/manageUser");
+          window.location.href = "/admin/manageUser";
         } else {
-          router.push("/");
+          window.location.href = "/";
         }
       }, 1200);
     } catch (err) {
@@ -56,7 +57,6 @@ export default function Login() {
       setLoading(false);
     }
   };
-  // 3D Card Effect
   const handleMouseMove = (e: any) => {
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();

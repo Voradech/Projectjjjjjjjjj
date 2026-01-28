@@ -10,6 +10,7 @@ import { Request, Response } from "express";
 import { pool } from "./db/pool";
 import newsRouter from "./routes/new";
 import routes from "./route";
+import "dotenv/config";
 const app = express();
 
 app.use(
@@ -45,7 +46,7 @@ app.get("/", async (req: Request, res: Response) => {
   }
 });
 app.use("/api/news", newsRouter);
-
+app.use("/route", routes);
 app.use("/auth", authRouter);
 app.use("/api/alerts", alertsRouter);
 app.use("/api", priceRouter);

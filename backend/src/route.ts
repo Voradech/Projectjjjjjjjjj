@@ -5,13 +5,6 @@ import Parser from "rss-parser";
 
 const router = express.Router();
 
-/**
- * GET /api/price
- * query:
- *  - symbol (default BTCUSDT)
- *  - interval (default 1d)
- *  - limit (default 100)
- */
 router.get("/price", async (req: Request, res: Response) => {
   try {
     const symbol = (req.query.symbol as string) || "BTCUSDT";

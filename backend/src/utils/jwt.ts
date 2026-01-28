@@ -1,64 +1,40 @@
-import jwt, { type SignOptions } from "jsonwebtoken";
-import dotenv from "dotenv";
-import ms from "ms";
+import jwt, { JwtPayload } from "jsonwebtoken";
 
-dotenv.config();
+/* ================= TYPES ================= */
 
-export type JwtPayload = { sub: string; email: string };
-
-function mustGetEnv(key: string): string {
-  const v = process.env[key];
-  if (!v || v.trim() === "") throw new Error(`Missing env: ${key}`);
-  return v;
+// 🔥 Payload ของระบบเราเอง
+export interface AuthTokenPayload extends JwtPayload {
+  sub: string;
+  email: string;
+  role: "admin" | "user";
 }
 
-const accessSecret = mustGetEnv("JWT_ACCESS_SECRET");
-const refreshSecret = mustGetEnv("JWT_REFRESH_SECRET");
+/* ================= SIGN ================= */
 
-function assertTtlFormat(ttl: string) {
- 
-  if (!/^\d+(ms|s|m|h|d|w|y)$/.test(ttl)) {
-    throw new Error(`Invalid TTL format: ${ttl} (expected like "15m", "1h", "7d")`);
-  }
-}
-
-function ttlToSeconds(ttl: string): number {
-  assertTtlFormat(ttl);
-  const value = ms(ttl as ms.StringValue); 
-  return Math.floor(value / 1000);
-}
-
-const accessTTL = process.env.ACCESS_TOKEN_TTL ?? "15m";
-const refreshTTL = process.env.REFRESH_TOKEN_TTL ?? "14d";
-
-const accessOptions: SignOptions = { expiresIn: ttlToSeconds(accessTTL) };
-const refreshOptions: SignOptions = { expiresIn: ttlToSeconds(refreshTTL) };
-
-export function signAccessToken(payload: JwtPayload) {
-  return jwt.sign(payload, accessSecret, accessOptions);
-}
-export const signToken = (payload: any) => {
-  return jwt.sign(payload, process.env.JWT_SECRET!, {
-    expiresIn: "1d",
+export function signAccessToken(payload: AuthTokenPayload) {
+  return jwt.sign(payload, process.env.JWT_ACCESS_SECRET!, {
+    expiresIn: "15m",
   });
-};
-
-export function signRefreshToken(payload: JwtPayload) {
-  return jwt.sign(payload, refreshSecret, refreshOptions);
 }
 
-export function verifyAccessToken(token: string): JwtPayload | null {
-  try {
-    return jwt.verify(token, accessSecret) as JwtPayload;
-  } catch {
-    return null;
-  }
+export function signRefreshToken(payload: AuthTokenPayload) {
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET!, {
+    expiresIn: "14d",
+  });
 }
 
-export function verifyRefreshToken(token: string): JwtPayload | null {
-  try {
-    return jwt.verify(token, refreshSecret) as JwtPayload;
-  } catch {
-    return null;
-  }
+/* ================= VERIFY ================= */
+
+export function verifyAccessToken(token: string): AuthTokenPayload {
+  return jwt.verify(
+    token,
+    process.env.JWT_SECRET!
+  ) as AuthTokenPayload;
+}
+
+export function verifyRefreshToken(token: string): AuthTokenPayload {
+  return jwt.verify(
+    token,
+    process.env.JWT_REFRESH_SECRET!
+  ) as AuthTokenPayload;
 }

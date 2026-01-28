@@ -195,4 +195,4 @@ for h in HORIZONS:
 with open(os.path.join(MODEL_DIR, "metrics.json"), "w", encoding="utf-8") as f:
     json.dump(all_metrics, f, indent=2, ensure_ascii=False)
 
-print("\n✅ DONE: Return-based price models saved.")
+print("\n DONE: Return-based price models saved.")

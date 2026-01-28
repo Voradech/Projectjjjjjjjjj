@@ -1,31 +1,46 @@
-import { signToken } from "../utils/jwt";
+import { verifyAccessToken, AuthTokenPayload } from "../utils/jwt";
+import jwt from "jsonwebtoken";
 
 export const login = async (req: any, res: any) => {
   const userRepo = req.userRepo;
   const { username, password } = req.body;
+  const token = req.cookies.accessToken;
+  const payload: AuthTokenPayload = verifyAccessToken(token);
 
-  // ✅ ตรวจ user / password (ของเดิมคุณ)
   const user = await userRepo.findByUsername(username);
   if (!user) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
-  // ✅ สร้าง token (ต้องมี role)
-  const token = signToken({
-    id: user.id,
-    email: user.email,
-    role: user.role, // 🔥 สำคัญ
-  });
 
-  // ✅ set cookie
-  res.cookie("token", token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false, // prod ค่อยเปลี่ยน true
+  res.json({
+    id: payload.sub,
+    email: payload.email,
+    role: payload.role,
   });
 
   res.json({
     message: "login success",
-    role: user.role, // frontend ใช้ redirect
+    role: user.role, 
   });
+};
+
+
+export const me = async (req: any, res: any) => {
+  const token = req.cookies.accessToken;
+  if (!token) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+
+  try {
+    const payload = verifyAccessToken(token);
+
+    return res.json({
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
+    });
+  } catch {
+    return res.status(401).json({ message: "Invalid token" });
+  }
 };
