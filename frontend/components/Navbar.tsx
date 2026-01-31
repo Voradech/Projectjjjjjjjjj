@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 interface User {
   id: string;
+  username: string;
   email: string;
   role: string;
 }
@@ -20,7 +21,6 @@ export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // โหลด session จาก backend
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
       credentials: "include", 
@@ -111,7 +111,7 @@ export default function Navbar() {
         {user ? (
           <div className="flex items-center gap-4">
             <span className="text-gray-200 flex items-center gap-2 bg-[151e32] px-3 py-1 rounded-full border border[#1E293B]">
-              <UserCircle size={16} className="text-accent" /> {user.id}
+              <UserCircle size={16} className="text-accent" /> {user.username}
             </span>
             <button
               onClick={handleLogout}

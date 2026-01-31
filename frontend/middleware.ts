@@ -19,7 +19,7 @@ export function middleware(req: NextRequest) {
   }
 
   if (path.startsWith("/admin") && role !== "admin") {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/admin", req.url)); 
   }
 
   return NextResponse.next();
@@ -31,7 +31,6 @@ export const config = {
     "/register",
     "/forgotPassword",
     "/alert",
-    "/alers",
     "/predictView",
     "/viewGraph",
     "/admin/:path*",

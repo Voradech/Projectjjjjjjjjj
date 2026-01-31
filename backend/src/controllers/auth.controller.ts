@@ -16,12 +16,14 @@ export const login = async (req: any, res: any) => {
   res.json({
     id: payload.sub,
     email: payload.email,
+    username: payload.username,
     role: payload.role,
   });
 
   res.json({
     message: "login success",
-    role: user.role, 
+    role: user.role,
+    username: user.username,
   });
 };
 
@@ -38,6 +40,7 @@ export const me = async (req: any, res: any) => {
     return res.json({
       id: payload.sub,
       email: payload.email,
+      username: payload.username,
       role: payload.role,
     });
   } catch {

@@ -7,6 +7,7 @@ import joblib
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.model_selection import TimeSeriesSplit
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
@@ -21,7 +22,8 @@ DATA_PATH = os.path.join(BASE_DIR, "data", "BTCDATA_1d_full.csv")
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-FEATURE_COLS = [
+# เฉพาะ features ที่มีในข้อมูลดิบ
+BASE_FEATURE_COLS = [
     "open",
     "high",
     "low",
@@ -39,6 +41,7 @@ TEST_SIZE = 0.3
 
 # ================= UTILS =================
 def create_sequences(X, y, window):
+    """สร้าง sequences สำหรับ LSTM"""
     X_seq, y_seq = [], []
     for i in range(window, len(X)):
         X_seq.append(X[i - window:i])
@@ -46,58 +49,215 @@ def create_sequences(X, y, window):
     return np.array(X_seq), np.array(y_seq)
 
 
-# ================= LOAD DATA =================
-print("Loading data:", DATA_PATH)
-df = pd.read_csv(DATA_PATH)
+def create_features(df):
+    """
+    สร้าง features จากข้อมูลดิบ
+     ปลอดภัย - ใช้เฉพาะข้อมูลในแต่ละ dataframe
+    """
+    df = df.copy()
 
+    # Returns (ใช้ข้อมูลอดีต)
+    df["return_1d"]  = df["close"].pct_change(1)
+    df["return_7d"]  = df["close"].pct_change(7)
+    df["return_14d"] = df["close"].pct_change(14)
+
+    # Moving averages (คำนวณภายใน df นี้เท่านั้น)
+    df["ma_7"]  = df["close"].rolling(7, min_periods=7).mean()
+    df["ma_14"] = df["close"].rolling(14, min_periods=14).mean()
+    df["ma_ratio_7"]  = df["close"] / df["ma_7"]
+    df["ma_ratio_14"] = df["close"] / df["ma_14"]
+
+    # Volatility
+    df["vol_7"]  = df["return_1d"].rolling(7, min_periods=7).std()
+    df["vol_14"] = df["return_1d"].rolling(14, min_periods=14).std()
+
+    # Lag prices (ใช้อดีต)
+    df["close_lag1"]  = df["close"].shift(1)
+    df["close_lag7"]  = df["close"].shift(7)
+    df["close_lag14"] = df["close"].shift(14)
+
+    # Lag volume
+    df["volume_lag1"]  = df["volume"].shift(1)
+    df["volume_lag7"]  = df["volume"].shift(7)
+    df["volume_lag14"] = df["volume"].shift(14)
+
+    return df
+
+
+def prepare_train_test_split(df, test_size=0.3, horizons=[1, 7, 14]):
+    """
+     แยก train/test แบบไม่มี data leakage
+    
+    Steps:
+    1. Split ข้อมูลดิบก่อน
+    2. สร้าง features แยกกันทั้งสอง set
+    3. สร้าง targets แยกกัน
+    4. ลบ NaN
+    """
+    # 1. Sort และ reset index
+    df = df.sort_values("date").reset_index(drop=True)
+    
+    # 2. Split ข้อมูลดิบก่อน (ก่อนสร้าง features)
+    split_idx = int(len(df) * (1 - test_size))
+    
+    train_raw = df.iloc[:split_idx].copy()
+    test_raw = df.iloc[split_idx:].copy()
+    
+    print(f"\nSplit at index {split_idx}")
+    print(f"Train raw: {train_raw['date'].min()} to {train_raw['date'].max()} ({len(train_raw)} rows)")
+    print(f"Test raw:  {test_raw['date'].min()} to {test_raw['date'].max()} ({len(test_raw)} rows)")
+    
+    # 3. สร้าง features แยกกัน
+    print("\n Creating features separately for train and test...")
+    train_df = create_features(train_raw)
+    test_df = create_features(test_raw)
+    
+    # 4. สร้าง targets แยกกัน
+    for h in horizons:
+        train_df[f"close_t+{h}"] = train_df["close"].shift(-h)
+        train_df[f"return_t+{h}"] = (
+            (train_df[f"close_t+{h}"] - train_df["close"]) / train_df["close"]
+        )
+        
+        test_df[f"close_t+{h}"] = test_df["close"].shift(-h)
+        test_df[f"return_t+{h}"] = (
+            (test_df[f"close_t+{h}"] - test_df["close"]) / test_df["close"]
+        )
+    
+    # 5. ลบ NaN
+    train_df = train_df.dropna()
+    test_df = test_df.dropna()
+    
+    print(f"\n After feature engineering:")
+    print(f"Train: {len(train_df)} rows ({train_df['date'].min()} to {train_df['date'].max()})")
+    print(f"Test:  {len(test_df)} rows ({test_df['date'].min()} to {test_df['date'].max()})")
+    
+    return train_df, test_df
+
+
+def check_no_leakage(train_df, test_df):
+  
+    train_max_date = train_df['date'].max()
+    test_min_date = test_df['date'].min()
+    
+    assert test_min_date > train_max_date, \
+        f" DATA LEAKAGE DETECTED: test starts before train ends!"
+    
+    print(f"\n NO TEMPORAL LEAKAGE:")
+    print(f"   Train ends:  {train_max_date}")
+    print(f"   Test starts: {test_min_date}")
+    print(f"   Gap: {(test_min_date - train_max_date).days} days")
+    
+    return True
+
+
+# รายการ features ทั้งหมด
+FEATURE_COLS = BASE_FEATURE_COLS + [
+    "return_1d",
+    "return_7d",
+    "return_14d",
+    "ma_7", 
+    "ma_14",
+    "ma_ratio_7",
+    "ma_ratio_14",
+    "vol_7",
+    "vol_14",
+    "close_lag1", 
+    "close_lag7",
+    "close_lag14", 
+    "volume_lag1",
+    "volume_lag7",
+    "volume_lag14",
+]   
+
+
+# ================= LOAD DATA =================
+print("="*60)
+print(" LOADING DATA")
+print("="*60)
+print(f"Data path: {DATA_PATH}")
+
+df = pd.read_csv(DATA_PATH)
 df["date"] = pd.to_datetime(df["date"])
-df = df.sort_values("date").dropna().drop_duplicates()
+df = df.sort_values("date").drop_duplicates()
 
 # ---------- Sentiment ----------
+print("\n Merging sentiment data...")
 sent_df = pd.read_csv(os.path.join(BASE_DIR, "data", "btc_sentiment.csv"))
 sent_df["date"] = pd.to_datetime(sent_df["date"])
 df = df.merge(sent_df, on="date", how="left")
 df["sentiment"] = df["sentiment"].fillna(0)
 
+# ตรวจสอบข้อมูลดิบ
+print(f"\n Raw data info:")
+print(f"Shape: {df.shape}")
+print(f"Date range: {df['date'].min()} to {df['date'].max()}")
+print(f"\nMissing values in base features:")
+print(df[BASE_FEATURE_COLS + ['close']].isnull().sum())
 
-# ================= FEATURE ENGINEERING =================
-df["return_1d"] = df["close"].pct_change()
-df["ma_7"] = df["close"].rolling(7).mean()
-df["ma_14"] = df["close"].rolling(14).mean()
-df["vol_7"] = df["return_1d"].rolling(7).std()
-
-# ---------- Targets ----------
-for h in HORIZONS:
-    df[f"close_t+{h}"] = df["close"].shift(-h)
-    df[f"return_t+{h}"] = (df[f"close_t+{h}"] - df["close"]) / df["close"]
-
-df = df.dropna()
+# ลบ missing ในข้อมูลดิบ
+df = df.dropna(subset=BASE_FEATURE_COLS + ["close"])
+print(f"\nAfter dropping missing: {len(df)} rows")
 
 
-# ================= TRAIN =================
+# ================= TRAIN/TEST SPLIT (NO LEAKAGE!) =================
+print("\n" + "="*60)
+print("  SPLITTING DATA (NO LEAKAGE)")
+print("="*60)
+
+#  Split แบบปลอดภัย - ไม่มี data leakage
+train_df, test_df = prepare_train_test_split(df, TEST_SIZE, HORIZONS)
+
+# ตรวจสอบว่าไม่มี leakage
+check_no_leakage(train_df, test_df)
+
+print(f"\n Features: {len(FEATURE_COLS)}")
+print(f"Feature list: {FEATURE_COLS[:5]}... (and {len(FEATURE_COLS)-5} more)")
+
+
+# ================= TRAIN MODELS =================
+print("\n" + "="*60)
+print(" TRAINING MODELS")
+print("="*60)
+
 all_metrics = {}
 
 for h in HORIZONS:
-    print(f"\n========== TRAIN t+{h} ==========")
+    print(f"\n{'='*60}")
+    print(f" TRAINING HORIZON t+{h}")
+    print(f"{'='*60}")
+    
     target_col = f"return_t+{h}"
 
-    split_idx = int(len(df) * (1 - TEST_SIZE))
-    train_df = df.iloc[:split_idx]
-    test_df = df.iloc[split_idx:]
+    # ตรวจสอบว่ามี target column
+    if target_col not in train_df.columns or target_col not in test_df.columns:
+        print(f"  Warning: {target_col} not found in data, skipping...")
+        continue
 
     X_train = train_df[FEATURE_COLS].values
     y_train = train_df[target_col].values
     X_test = test_df[FEATURE_COLS].values
     y_test = test_df[target_col].values
 
+    print(f"\nData shapes:")
+    print(f"  X_train: {X_train.shape}")
+    print(f"  y_train: {y_train.shape}")
+    print(f"  X_test:  {X_test.shape}")
+    print(f"  y_test:  {y_test.shape}")
+
     # ---------- SCALE ----------
-    scaler_tree = MinMaxScaler()
-    X_train_s = scaler_tree.fit_transform(X_train)
-    X_test_s = scaler_tree.transform(X_test)
+    #  Fit scaler บน train เท่านั้น
+    print("\n Scaling features...")
+    scaler = MinMaxScaler()
+    X_train_s = scaler.fit_transform(X_train)
+    X_test_s = scaler.transform(X_test)
 
     # ---------- Random Forest ----------
+    print("\n Training Random Forest...")
     rf = RandomForestRegressor(
         n_estimators=200,
+        max_depth=15,
+        min_samples_split=10,
         random_state=42,
         n_jobs=-1
     )
@@ -106,14 +266,17 @@ for h in HORIZONS:
 
     rf_mae = mean_absolute_error(y_test, rf_pred)
     rf_rmse = np.sqrt(mean_squared_error(y_test, rf_pred))
+    rf_direction = np.mean((rf_pred > 0) == (y_test > 0))
 
-    print(f"RF  MAE: {rf_mae:.6f} | RMSE: {rf_rmse:.6f}")
+    print(f"  MAE: {rf_mae:.6f} | RMSE: {rf_rmse:.6f} | Direction: {rf_direction:.4f}")
 
     # ---------- Gradient Boosting ----------
+    print("\nTraining Gradient Boosting...")
     gb = GradientBoostingRegressor(
         n_estimators=200,
         learning_rate=0.1,
         max_depth=5,
+        min_samples_split=10,
         random_state=42
     )
     gb.fit(X_train_s, y_train)
@@ -121,30 +284,31 @@ for h in HORIZONS:
 
     gb_mae = mean_absolute_error(y_test, gb_pred)
     gb_rmse = np.sqrt(mean_squared_error(y_test, gb_pred))
+    gb_direction = np.mean((gb_pred > 0) == (y_test > 0))
 
-    print(f"GB  MAE: {gb_mae:.6f} | RMSE: {gb_rmse:.6f}")
+    print(f"  MAE: {gb_mae:.6f} | RMSE: {gb_rmse:.6f} | Direction: {gb_direction:.4f}")
 
     # ---------- LSTM ----------
-    scaler_lstm = MinMaxScaler()
-    X_train_lstm = scaler_lstm.fit_transform(train_df[FEATURE_COLS].values)
+    print("\n Training LSTM...")
+    # ใช้ข้อมูลที่ scale แล้ว
+    X_train_lstm = X_train_s
+    X_test_lstm = X_test_s
 
     X_train_seq, y_train_seq = create_sequences(
         X_train_lstm,
         y_train,
         LSTM_WINDOW_SIZE
     )
-
-    lstm_input = pd.concat([
-        train_df[FEATURE_COLS].tail(LSTM_WINDOW_SIZE),
-        test_df[FEATURE_COLS]
-    ])
-    X_test_lstm = scaler_lstm.transform(lstm_input.values)
-    X_test_seq, _ = create_sequences(
+    
+    X_test_seq, y_test_seq = create_sequences(
         X_test_lstm,
-        np.zeros(len(X_test_lstm)),
+        y_test,
         LSTM_WINDOW_SIZE
     )
-    X_test_seq = X_test_seq[-len(test_df):]
+
+    print(f"  Sequence shapes:")
+    print(f"    X_train_seq: {X_train_seq.shape}")
+    print(f"    X_test_seq:  {X_test_seq.shape}")
 
     lstm = Sequential([
         LSTM(64, return_sequences=True, input_shape=(LSTM_WINDOW_SIZE, len(FEATURE_COLS))),
@@ -163,7 +327,6 @@ for h in HORIZONS:
     lstm.fit(
         X_train_seq,
         y_train_seq,
-        validation_split=0.1,
         epochs=50,
         batch_size=32,
         callbacks=[EarlyStopping(patience=5, restore_best_weights=True)],
@@ -172,27 +335,72 @@ for h in HORIZONS:
 
     lstm_pred = lstm.predict(X_test_seq, verbose=0).flatten()
 
-    lstm_mae = mean_absolute_error(y_test, lstm_pred)
-    lstm_rmse = np.sqrt(mean_squared_error(y_test, lstm_pred))
+    lstm_mae = mean_absolute_error(y_test_seq, lstm_pred)
+    lstm_rmse = np.sqrt(mean_squared_error(y_test_seq, lstm_pred))
+    lstm_direction = np.mean((lstm_pred > 0) == (y_test_seq > 0))
 
-    print(f"LSTM MAE: {lstm_mae:.6f} | RMSE: {lstm_rmse:.6f}")
+    print(f"  MAE: {lstm_mae:.6f} | RMSE: {lstm_rmse:.6f} | Direction: {lstm_direction:.4f}")
 
-    # ---------- SAVE ----------
+    # ---------- SAVE MODELS ----------
+    print(f"\n Saving models for horizon t+{h}...")
+    
     joblib.dump(rf, os.path.join(MODEL_DIR, f"rf_return+{h}.pkl"))
     joblib.dump(gb, os.path.join(MODEL_DIR, f"gb_return+{h}.pkl"))
-    joblib.dump(scaler_tree, os.path.join(MODEL_DIR, f"scaler_tree+{h}.pkl"))
-    joblib.dump(scaler_lstm, os.path.join(MODEL_DIR, f"scaler_lstm+{h}.pkl"))
+    joblib.dump(scaler, os.path.join(MODEL_DIR, f"scaler+{h}.pkl"))
     lstm.save(os.path.join(MODEL_DIR, f"lstm_return+{h}.keras"))
-
-    all_metrics[f"t+{h}"] = {
-        "random_forest": {"mae": rf_mae, "rmse": rf_rmse},
-        "gradient_boosting": {"mae": gb_mae, "rmse": gb_rmse},
-        "lstm": {"mae": lstm_mae, "rmse": lstm_rmse},
+    
+    # บันทึก feature info สำหรับ production
+    feature_info = {
+        'feature_cols': FEATURE_COLS,
+        'base_feature_cols': BASE_FEATURE_COLS,
+        'lstm_window_size': LSTM_WINDOW_SIZE,
+        'horizon': h
     }
+    joblib.dump(feature_info, os.path.join(MODEL_DIR, f"feature_info+{h}.pkl"))
+
+    # บันทึก metrics
+    all_metrics[f"t+{h}"] = {
+        "random_forest": {
+            "mae": float(rf_mae),
+            "rmse": float(rf_rmse),
+            "direction_accuracy": float(rf_direction)
+        },
+        "gradient_boosting": {
+            "mae": float(gb_mae),
+            "rmse": float(gb_rmse),
+            "direction_accuracy": float(gb_direction)
+        },
+        "lstm": {
+            "mae": float(lstm_mae),
+            "rmse": float(lstm_rmse),
+            "direction_accuracy": float(lstm_direction)
+        },
+    }
+
+    print(f"  Saved successfully!")
 
 
 # ================= SAVE METRICS =================
+print("\n" + "="*60)
+print(" SAVING METRICS")
+print("="*60)
+
 with open(os.path.join(MODEL_DIR, "metrics.json"), "w", encoding="utf-8") as f:
     json.dump(all_metrics, f, indent=2, ensure_ascii=False)
 
-print("\n DONE: Return-based price models saved.")
+print(f"\n{'='*60}")
+print("TRAINING COMPLETE!")
+print(f"{'='*60}")
+print(f"\nSaved to: {MODEL_DIR}")
+print(f"\nFiles created:")
+print(f"   Models:")
+for h in HORIZONS:
+    print(f"     - rf_return+{h}.pkl")
+    print(f"     - gb_return+{h}.pkl")
+    print(f"     - lstm_return+{h}.keras")
+    print(f"     - scaler+{h}.pkl")
+    print(f"     - feature_info+{h}.pkl")
+print(f"   Metrics:")
+print(f"     - metrics.json")
+print(f"\n{'='*60}")
+print(f"{'='*60}\n")

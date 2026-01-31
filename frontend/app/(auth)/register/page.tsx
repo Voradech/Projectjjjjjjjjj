@@ -76,11 +76,7 @@ export default function Register() {
       setLoading(false);
     }
   };
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(form.email)) {
-    setError("Invalid email format.");
-    return;
-  }
+
   return (
     <div className="flex justify-center items-center min-h-[60vh] pt-24">
       <div className="bg-[#151e32] border border-[#1E293B] p-8 rounded-2xl shadow-2xl w-full max-w-md">

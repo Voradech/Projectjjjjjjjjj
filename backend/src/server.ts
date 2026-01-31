@@ -1,7 +1,8 @@
 import express from "express";
+import adminRouter from "./routes/admin";
+
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import adminRouter from "./routes/admin";
 import priceRouter from "./routes/price";
 import { authRouter } from "./routes/auth";
 import alertsRouter from "./routes/alerts";
@@ -13,6 +14,10 @@ import routes from "./route";
 import "dotenv/config";
 const app = express();
 
+
+
+app.use(express.json());
+app.use(cookieParser());
 app.use(
   cors({ 
     origin: "http://localhost:3000",
@@ -20,8 +25,14 @@ app.use(
   })
 );
 app.use(routes);
-app.use(express.json());
-app.use(cookieParser());
+
+app.use("/api/news", newsRouter);
+app.use("/route", routes);
+app.use("/auth", authRouter);
+app.use("/api/alerts", alertsRouter);
+app.use("/api", priceRouter);
+app.use("/admin", adminRouter);
+
 app.get("/", async (req: Request, res: Response) => {
   try {
     const result = await pool.query("SELECT NOW() as server_time");
@@ -45,13 +56,6 @@ app.get("/", async (req: Request, res: Response) => {
     });
   }
 });
-app.use("/api/news", newsRouter);
-app.use("/route", routes);
-app.use("/auth", authRouter);
-app.use("/api/alerts", alertsRouter);
-app.use("/api", priceRouter);
-app.use("/admin", adminRouter);
-
 
 setInterval(() => {
   checkAlerts().catch(console.error);

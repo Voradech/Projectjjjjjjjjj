@@ -2,7 +2,7 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 
 /* ================= TYPES ================= */
 
-// 🔥 Payload ของระบบเราเอง
+//  Payload ของระบบเราเอง
 export interface AuthTokenPayload extends JwtPayload {
   sub: string;
   email: string;
@@ -28,7 +28,7 @@ export function signRefreshToken(payload: AuthTokenPayload) {
 export function verifyAccessToken(token: string): AuthTokenPayload {
   return jwt.verify(
     token,
-    process.env.JWT_SECRET!
+    process.env.JWT_ACCESS_SECRET!
   ) as AuthTokenPayload;
 }
 
