@@ -9,7 +9,7 @@ import {
   UTCTimestamp,
   ISeriesApi,
 } from "lightweight-charts";
-import { predictTrend,TrendResult } from "@/services/prediction";
+import { predictLSTM, predictTrend } from "@/services/prediction";
 import { fetchActualCandles } from "@/services/marketData";
 
 type ModelType = "rf" | "gb" | "lstm";
@@ -22,12 +22,15 @@ export default function PredictView() {
   const chartRef = useRef<HTMLDivElement | null>(null);
   const chartApiRef = useRef<IChartApi | null>(null);
   const actualSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const predictSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
   const [model, setModel] = useState<ModelType>("lstm");
   const [horizon, setHorizon] = useState<Horizon>(1);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [trend, setTrend] = useState<Trend | null>(null);
   const [signal, setSignal] = useState<Signal | null>(null);
+  const [confidence, setConfidence] =
+    useState<"HIGH" | "MEDIUM" | "LOW" | null>(null);
 
 
   const query = useMemo(
@@ -35,7 +38,6 @@ export default function PredictView() {
     []
   );
 
-  // ---------- Chart init ----------
   useEffect(() => {
     if (!chartRef.current) return;
 
@@ -66,13 +68,13 @@ export default function PredictView() {
 
   // ---------- Predict ----------
 
-const runPredict = async () => {
+  const runPredict = async () => {
   try {
     setErr(null);
     setLoading(true);
     setTrend(null);
     setSignal(null);
-    
+
     const candles = await fetchActualCandles(query);
     if (!chartApiRef.current) return;
 
@@ -101,21 +103,68 @@ const runPredict = async () => {
       }))
     );
 
-    // ----- call prediction service -----
-    const res = await predictTrend(
-      model,
-      candles[candles.length - 1], // ใช้แท่งล่าสุด
-      {
-        candles,
-        horizon,
+    // ----- remove old prediction line -----
+    if (predictSeriesRef.current) {
+      chartApiRef.current.removeSeries(predictSeriesRef.current);
+      predictSeriesRef.current = null;
+    }
+
+    // ===== CALL BACKEND =====
+    let res: any;
+
+    if (model === "lstm") {
+      res = await predictLSTM(candles, horizon);
+
+      // ----- create prediction line -----
+      predictSeriesRef.current = chartApiRef.current.addSeries(LineSeries, {
+        color: "#22c55e",
+        lineWidth: 2,
+        lineStyle: 1, // dashed
+      });
+
+      if (res?.series) {
+        let lastClose = Number(candles[candles.length - 1].close);
+
+        const lineData = res.series.map((p: any) => {
+          lastClose = lastClose * (1 + p.predicted_return);
+          return {
+            time: p.time as UTCTimestamp,
+            value: lastClose,
+          };
+        });
+
+        predictSeriesRef.current.setData(lineData);
       }
+  } else {
+    // RF / GB → decision support
+    res = await predictTrend(
+      model,
+      candles[candles.length - 1]
     );
+  }
 
-    // ----- map result to UI -----
 
-  if (res?.trend && res?.signal) {
-  setTrend(res.trend === "UP" ? "Bullish" : "Bearish");
-  setSignal(res.signal);
+    if (res?.trend) {
+    const uiTrend =
+      res.trend === "UP"
+        ? "Bullish"
+        : res.trend === "DOWN"
+        ? "Bearish"
+        : "sideways";
+
+    setTrend(uiTrend);
+
+    setSignal(
+      res.trend === "UP"
+        ? "BUY"
+        : res.trend === "DOWN"
+        ? "SELL"
+        : "HOLD"
+    );
+  }
+
+  if (res?.confidence) {
+    setConfidence(res.confidence);
   }
 
 
@@ -126,6 +175,7 @@ const runPredict = async () => {
     setLoading(false);
   }
 };
+
 
   // ================= UI =================
   return (
@@ -165,40 +215,29 @@ const runPredict = async () => {
 
       {err && <div className="text-red-500">{err}</div>}
 
-      {trend && signal && (
-        <div className="rounded border p-4 text-white">
-          <div className="text-sm opacity-70">Next {horizon} days</div>
-          <div
-            className={`text-3xl font-bold ${
-              trend === "Bullish"
-                ? "text-green-400"
-                : trend === "Bearish"
-                ? "text-red-400"
-                : "text-yellow-300"
-            }`}
-          >
-            {trend}
-          </div>
-          <div
-            className={`text-3xl font-bold ${
-              signal === "BUY"
-                ? "text-green-400"
-                : signal === "SELL"
-                ? "text-red-400"
-                : "text-yellow-300"
-            }`}
-          >
-            {signal}
-          </div>
-          
-        {/*     <div>
-              Trend: <span className="font-bold">{trend}</span>{" "}
-              {changePct !== null && (
-                <span className="opacity-70">({changePct.toFixed(2)}%)</span>
-              )}
-            </div> */}
-        </div>
-      )}
+     {trend && signal && (
+  <div className="rounded border p-4 text-white">
+    <div className="text-sm opacity-70">
+      Next {model === "lstm" ? horizon : "1–14"} days
+    </div>
+
+    <div className="text-3xl font-bold">
+      {trend}
+    </div>
+
+    <div className="text-3xl font-bold">
+      {signal}
+    </div>
+
+    {confidence && (
+      <div className="mt-2 text-sm opacity-80">
+        Confidence:{" "}
+        <span className="font-semibold">{confidence}</span>
+      </div>
+    )}
+  </div>
+)}
+
 
       <div className="rounded-xl border w-[80%] mx-auto p-3">
         <div ref={chartRef} className="w-full h-[520px]" />

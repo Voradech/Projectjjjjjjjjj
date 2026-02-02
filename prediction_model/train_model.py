@@ -7,7 +7,6 @@ import joblib
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from sklearn.model_selection import TimeSeriesSplit
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
@@ -50,16 +49,12 @@ def create_sequences(X, y, window):
 
 
 def create_features(df):
-    """
-    สร้าง features จากข้อมูลดิบ
-     ปลอดภัย - ใช้เฉพาะข้อมูลในแต่ละ dataframe
-    """
     df = df.copy()
 
     # Returns (ใช้ข้อมูลอดีต)
-    df["return_1d"]  = df["close"].pct_change(1)
-    df["return_7d"]  = df["close"].pct_change(7)
-    df["return_14d"] = df["close"].pct_change(14)
+    df["return_1d"]  = df["close"].pct_change(1).shift(1)
+    df["return_7d"]  = df["close"].pct_change(7).shift(1)
+    df["return_14d"] = df["close"].pct_change(14).shift(1)
 
     # Moving averages (คำนวณภายใน df นี้เท่านั้น)
     df["ma_7"]  = df["close"].rolling(7, min_periods=7).mean()
@@ -68,8 +63,9 @@ def create_features(df):
     df["ma_ratio_14"] = df["close"] / df["ma_14"]
 
     # Volatility
-    df["vol_7"]  = df["return_1d"].rolling(7, min_periods=7).std()
-    df["vol_14"] = df["return_1d"].rolling(14, min_periods=14).std()
+    returns = df["close"].pct_change(1)
+    df["vol_7"] = returns.shift(1).rolling(7, min_periods=7).std()
+    df["vol_14"] = returns.shift(1).rolling(14, min_periods=14).std()
 
     # Lag prices (ใช้อดีต)
     df["close_lag1"]  = df["close"].shift(1)
@@ -290,22 +286,30 @@ for h in HORIZONS:
 
     # ---------- LSTM ----------
     print("\n Training LSTM...")
-    # ใช้ข้อมูลที่ scale แล้ว
-    X_train_lstm = X_train_s
-    X_test_lstm = X_test_s
-
+    
+    # ===== TRAIN SEQUENCE (เหมือนเดิม) =====
     X_train_seq, y_train_seq = create_sequences(
-        X_train_lstm,
+        X_train_s,
         y_train,
         LSTM_WINDOW_SIZE
     )
-    
+
+    # ===== TEST SEQUENCE (ต่อ tail ของ train) =====
+    X_all = np.vstack([
+        X_train_s[-LSTM_WINDOW_SIZE:], 
+        X_test_s
+    ])
+
+    y_all = np.concatenate([
+        y_train[-LSTM_WINDOW_SIZE:], 
+        y_test
+    ])
+
     X_test_seq, y_test_seq = create_sequences(
-        X_test_lstm,
-        y_test,
+        X_all,
+        y_all,
         LSTM_WINDOW_SIZE
     )
-
     print(f"  Sequence shapes:")
     print(f"    X_train_seq: {X_train_seq.shape}")
     print(f"    X_test_seq:  {X_test_seq.shape}")

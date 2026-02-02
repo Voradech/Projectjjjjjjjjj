@@ -19,7 +19,7 @@ export function middleware(req: NextRequest) {
   }
 
   if (path.startsWith("/admin") && role !== "admin") {
-    return NextResponse.redirect(new URL("/admin", req.url)); 
+    return NextResponse.redirect(new URL("/admin/manageUser", req.url)); 
   }
 
   return NextResponse.next();

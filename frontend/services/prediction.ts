@@ -1,14 +1,18 @@
-import axios from "axios";
+// services/prediction.ts
 
-const API_BASE = "http://localhost:8001";
+const API_BASE = "http://localhost:8000";
 
-// ---------- TYPES ----------
-export type ModelType = "rf" | "gb" | "lstm" | "ensemble";
+// ================= TYPES =================
 
-export interface PriceInput {
+export type ModelType = "rf" | "gb" | "lstm";
+export type Horizon = 1 | 7 | 14;
+
+export interface Candle {
+  time: number;
   open: number;
   high: number;
   low: number;
+  close: number;
   volume: number;
   quote_asset_volume: number;
   trades: number;
@@ -17,81 +21,97 @@ export interface PriceInput {
   sentiment?: number;
 }
 
-export interface Candle extends PriceInput {
-  time: number;
-  close: number;
-}
-export type TrendResult = {
+// ---------- RF / GB ----------
+export interface TreePredictResponse {
   model: string;
   horizon: string;
-  signal: "BUY" | "SELL" | "HOLD";
-  trend?: "UP" | "DOWN";
-  confidence?: number;
-  explain?: string;
-  results?: {
-    rf: TrendResult;
-    gb: TrendResult;
-    lstm: TrendResult;
-  };
-};
+  predicted_return: number;
+  trend: "UP" | "DOWN";
+}
 
-// ---------- CORE FUNCTION ----------
-export async function predictTrend(
-  model: ModelType,
-  payload: PriceInput,
-  options?: {
-    candles?: Candle[];
-    horizon?: number;
-  }
-): Promise<TrendResult> {
-  const horizon = options?.horizon ?? 1;
+// ---------- TREND (RF / GB multi-horizon) ----------
+export interface TrendPredictResponse {
+  model: string;
+  predictions: Record<string, number>;
+  trend: "UP" | "DOWN" | "SIDEWAY";
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+}
 
-  // ---------- LSTM ----------
-  if (model === "lstm") {
-    if (!options?.candles || options.candles.length <= 30) {
-      throw new Error("LSTM requires candle history (>30)");
+// ---------- LSTM ----------
+export interface LSTMPredictResponse {
+  model: "lstm";
+  horizon: string;
+  trend: "UP" | "DOWN" | "SIDEWAY";
+  confidence: "HIGH" | "MEDIUM" | "LOW";
+  series: {
+    time: number;
+    predicted_return: number;
+    trend: "UP" | "DOWN";
+  }[];
+}
+
+// ================= API CALLS =================
+
+// ---------- RF / GB (single horizon return) ----------
+export async function predictTree(
+  model: "rf" | "gb",
+  candle: Candle,
+  horizon: Horizon
+): Promise<TreePredictResponse> {
+  const res = await fetch(
+    `${API_BASE}/predict?model=${model}&horizon=${horizon}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(candle),
     }
+  );
 
-    const res = await axios.post(
-      `${API_BASE}/predict/lstm`,
-      options.candles,
-      { params: { horizon } }
-    );
-
-    return res.data;
+  if (!res.ok) {
+    throw new Error("Tree prediction failed");
   }
 
-  // ---------- RF / GB ----------
-  if (model === "rf" || model === "gb") {
-    const res = await axios.post(
-      `${API_BASE}/predict`,
-      payload,
-      {
-        params: {
-          model,
-          horizon,
-        },
-      }
-    );
+  return res.json();
+}
 
-    return res.data;
+// ---------- RF / GB (trend decision support) ----------
+export async function predictTrend(
+  model: "rf" | "gb",
+  candle: Candle
+): Promise<TrendPredictResponse> {
+  const res = await fetch(
+    `${API_BASE}/predict/trend?model=${model}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(candle),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error("Trend prediction failed");
   }
 
-  // ---------- ENSEMBLE (future ready) ----------
-  if (model === "ensemble") {
-    const [rf, gb, lstm] = await Promise.all([
-      predictTrend("rf", payload, { horizon }),
-      predictTrend("gb", payload, { horizon }),
-      predictTrend("lstm", payload, {horizon} ),
-    ]);
+  return res.json();
+}
 
-    return {
-      model: "ensemble",
-      horizon: `t+${horizon}`,
-      signal: rf.signal,
-      results: { rf, gb, lstm },
-    };
+// ---------- LSTM (series + trend) ----------
+export async function predictLSTM(
+  candles: Candle[],
+  horizon: Horizon
+): Promise<LSTMPredictResponse> {
+  const res = await fetch(
+    `${API_BASE}/predict/lstm?horizon=${horizon}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(candles),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error("LSTM prediction failed");
   }
 
-  throw new Error("Invalid model type");
+  return res.json();
 }

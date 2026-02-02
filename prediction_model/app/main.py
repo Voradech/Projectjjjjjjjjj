@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List
 import os, json, joblib
 import numpy as np
+import pandas as pd
 from tensorflow.keras.models import load_model
 
 # ================= PATH =================
@@ -13,27 +14,15 @@ METRICS_PATH = os.path.join(MODEL_DIR, "metrics.json")
 
 # ================= LOAD METRICS =================
 if not os.path.exists(METRICS_PATH):
-    raise RuntimeError("metrics.json not found – train model first")
+    raise RuntimeError("metrics.json not found - train model first")
 
 with open(METRICS_PATH, "r", encoding="utf-8") as f:
     metrics = json.load(f)
 
-FEATURE_COLS = [
-    "open",
-    "high",
-    "low",
-    "volume",
-    "quote_asset_volume",
-    "trades",
-    "taker_buy_base",
-    "taker_buy_quote",
-    "sentiment",
-]
-
-LSTM_WINDOW = 30
 HORIZONS = [1, 7, 14]
+
 # ================= FASTAPI =================
-app = FastAPI(title="Bitcoin Prediction API (Multi-Horizon)")
+app = FastAPI(title="Bitcoin Return & Trend Prediction API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,6 +37,7 @@ class PriceInput(BaseModel):
     open: float
     high: float
     low: float
+    close: float
     volume: float
     quote_asset_volume: float
     trades: float
@@ -57,23 +47,80 @@ class PriceInput(BaseModel):
 
 class Candle(PriceInput):
     time: int
-    close: float
+
 
 # ================= UTILS =================
+def create_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    df["return_1d"]  = df["close"].pct_change(1)
+    df["return_7d"]  = df["close"].pct_change(7)
+    df["return_14d"] = df["close"].pct_change(14)
+
+    df["ma_7"]  = df["close"].rolling(7).mean()
+    df["ma_14"] = df["close"].rolling(14).mean()
+    df["ma_ratio_7"]  = df["close"] / df["ma_7"]
+    df["ma_ratio_14"] = df["close"] / df["ma_14"]
+
+    df["vol_7"]  = df["return_1d"].rolling(7).std()
+    df["vol_14"] = df["return_1d"].rolling(14).std()
+
+    df["close_lag1"]  = df["close"].shift(1)
+    df["close_lag7"]  = df["close"].shift(7)
+    df["close_lag14"] = df["close"].shift(14)
+
+    df["volume_lag1"]  = df["volume"].shift(1)
+    df["volume_lag7"]  = df["volume"].shift(7)
+    df["volume_lag14"] = df["volume"].shift(14)
+
+    return df
+
+
+def load_feature_info(h: int):
+    path = os.path.join(MODEL_DIR, f"feature_info+{h}.pkl")
+    if not os.path.exists(path):
+        raise HTTPException(404, f"feature_info for t+{h} not found")
+    return joblib.load(path)
+
+
 def load_tree(model: str, h: int):
-    model_path = os.path.join(MODEL_DIR, f"{model}+{h}.pkl")
-    scaler_path = os.path.join(MODEL_DIR, f"scaler_X_tree+{h}.pkl")
+    model_path = os.path.join(MODEL_DIR, f"{model}_return+{h}.pkl")
+    scaler_path = os.path.join(MODEL_DIR, f"scaler+{h}.pkl")
 
     if not os.path.exists(model_path):
-        raise HTTPException(404, f"Model not found: {model}+{h}")
+        raise HTTPException(404, f"Model not found: {model}_return+{h}")
 
     return joblib.load(model_path), joblib.load(scaler_path)
 
+
 def load_lstm(h: int):
     return (
-        load_model(os.path.join(MODEL_DIR, f"lstm_model+{h}.keras")),
-        joblib.load(os.path.join(MODEL_DIR, f"scaler_X_lstm+{h}.pkl")),
+        load_model(os.path.join(MODEL_DIR, f"lstm_return+{h}.keras")),
+        joblib.load(os.path.join(MODEL_DIR, f"scaler+{h}.pkl")),
+        load_feature_info(h)
     )
+
+def calculate_trend(pred_dict, threshold=0.0):
+    values = list(pred_dict.values())
+
+    positive = sum(1 for v in values if v > threshold)
+    negative = sum(1 for v in values if v < -threshold)
+
+    if positive >= 2:
+        return "UP"
+    elif negative >= 2:
+        return "DOWN"
+    else:
+        return "SIDEWAY"
+
+def calculate_confidence(pred_dict):
+    values = list(pred_dict.values())
+    if all(v > 0 for v in values) or all(v < 0 for v in values):
+        return "HIGH"
+    elif sum(v > 0 for v in values) >= 2 or sum(v < 0 for v in values) >= 2:
+        return "MEDIUM"
+    else:
+        return "LOW"
 
 
 # ================= ROUTES =================
@@ -82,125 +129,127 @@ def root():
     return {
         "models": ["rf", "gb", "lstm"],
         "horizons": HORIZONS,
-        "feature_cols": FEATURE_COLS,
-        "lstm_window": LSTM_WINDOW,
     }
+
+
 @app.get("/metrics")
 def get_metrics():
     return metrics
+
 
 # ---------- RF / GB ----------
 @app.post("/predict")
 def predict_tree(
     data: PriceInput,
     model: str = Query("rf", regex="^(rf|gb)$"),
-    horizon: int = Query(1),    
+    horizon: int = Query(1),
 ):
     if horizon not in HORIZONS:
         raise HTTPException(400, "Invalid horizon")
 
     model_name = "random_forest" if model == "rf" else "gradient_boosting"
     model_obj, scaler = load_tree(model_name, horizon)
+    feature_info = load_feature_info(horizon)
+    FEATURE_COLS = feature_info["feature_cols"]
 
-    payload = data.model_dump()
-    X = np.array([[payload[c] for c in FEATURE_COLS]], dtype=float)
+    df = pd.DataFrame([data.model_dump()])
+    df_feat = create_features(df).dropna()
+
+    if len(df_feat) == 0:
+        raise HTTPException(400, "Not enough data to create features")
+
+    X = df_feat[FEATURE_COLS].values
     X_scaled = scaler.transform(X)
 
-    pred = model_obj.predict(X_scaled)[0]
-    trend = "UP" if int(pred) == 1 else "DOWN"
+    pred_return = float(model_obj.predict(X_scaled)[0])
 
     return {
         "model": model,
         "horizon": f"t+{horizon}",
-        "trend": trend,
-        "signal": "BUY" if trend == "UP" else "SELL",
-        "confidence": 0.7
+        "predicted_return": pred_return,
+        "trend": "UP" if pred_return > 0 else "DOWN",
     }
 
 
-
-# ---------- LSTM ----------
-@app.post("/predict/lstm")
+# ---------- LSTM ----------@app.post("/predict/lstm")
 def predict_lstm(
     rows: List[Candle],
     horizon: int = Query(1),
 ):
     if horizon not in HORIZONS:
         raise HTTPException(400, "Invalid horizon")
-    if len(rows) <= LSTM_WINDOW:
-        raise HTTPException(400, f"Need > {LSTM_WINDOW} candles")
 
-    lstm, scaler_X = load_lstm(horizon)
+    lstm, scaler, feature_info = load_lstm(horizon)
+    FEATURE_COLS = feature_info["feature_cols"]
+    WINDOW = feature_info["lstm_window_size"]
 
-    raw = np.array([[r.model_dump()[c] for c in FEATURE_COLS] for r in rows])
-    X_scaled = scaler_X.transform(raw)
+    df = pd.DataFrame([r.model_dump() for r in rows])
+    df_feat = create_features(df).dropna()
+
+    if len(df_feat) <= WINDOW:
+        raise HTTPException(400, f"Need more than {WINDOW} rows")
+
+    X = df_feat[FEATURE_COLS].values
+    X_scaled = scaler.transform(X)
 
     X_seq = []
-    for i in range(LSTM_WINDOW, len(X_scaled)):
-        X_seq.append(X_scaled[i - LSTM_WINDOW:i])
+    times = []
+
+    for i in range(WINDOW, len(X_scaled)):
+        X_seq.append(X_scaled[i - WINDOW:i])
+        times.append(df_feat.iloc[i]["time"])
+
     X_seq = np.array(X_seq)
 
-    probs = lstm.predict(X_seq, verbose=0)
-    pred = np.argmax(probs, axis=1)
+    # ===== 1) predict =====
+    pred_returns = lstm.predict(X_seq, verbose=0).flatten()
 
-    ups = []
-    downs = []
+    # ===== 2) trend logic (BACKEND) =====
+    pred_dict = {f"step_{i}": float(v) for i, v in enumerate(pred_returns)}
+    trend = calculate_trend(pred_dict)
+    confidence = calculate_confidence(pred_dict)
 
-    for i in range(len(pred)):
-        item = {
-            "trend": "UP" if pred[i] == 1 else "DOWN",
-            "confidence": float(np.max(probs[i]))
+    # ===== 3) series for graph =====
+    series = [
+        {
+            "time": int(times[i]),
+            "predicted_return": float(pred_returns[i]),
+            "trend": "UP" if pred_returns[i] > 0 else "DOWN"
         }
-        if item["trend"] == "UP":
-            ups.append(item)
-        else:
-            downs.append(item)
+        for i in range(len(pred_returns))
+    ]
 
-    if len(ups) > len(downs):
-        trend = "UP"
-        signal = "BUY"
-        confidence = float(np.mean([x["confidence"] for x in ups]))
-    else:
-        trend = "DOWN"
-        signal = "SELL"
-        confidence = float(np.mean([x["confidence"] for x in downs]))
-
-    # ---------- final response ----------
     return {
         "model": "lstm",
         "horizon": f"t+{horizon}",
         "trend": trend,
-        "signal": signal,
-        "confidence": round(confidence, 2),
-        "series": [
-            {
-                "time": rows[i + LSTM_WINDOW].time,
-                "trend": "UP" if pred[i] == 1 else "DOWN",
-                "confidence": float(np.max(probs[i]))
-            }
-            for i in range(len(pred))
-        ],
+        "confidence": confidence,
+        "series": series
     }
 
 
-
 @app.post("/predict/trend")
-def predict_trend(
-    data: PriceInput,
-    horizon: int = Query(7)
-):
-    if horizon not in HORIZONS:
-        raise HTTPException(400, "Invalid horizon")
+def predict_trend(data: PriceInput, model: str = Query("rf", regex="^(rf|gb)$")):
+    preds = {}
 
-    model, scaler = load_tree("random_forest", horizon)
+    for h in HORIZONS:
+        model_name = "random_forest" if model == "rf" else "gradient_boosting"
+        model_obj, scaler = load_tree(model_name, h)
+        feature_info = load_feature_info(h)
+        FEATURE_COLS = feature_info["feature_cols"]
 
-    X = np.array([[data.model_dump()[c] for c in FEATURE_COLS]])
-    X_scaled = scaler.transform(X)
+        df = pd.DataFrame([data.model_dump()])
+        df_feat = create_features(df).dropna()
+        X = scaler.transform(df_feat[FEATURE_COLS].values)
 
-    pred = int(model.predict(X_scaled)[0])
+        preds[f"t+{h}"] = float(model_obj.predict(X)[0])
+
+    trend = calculate_trend(preds)
+    confidence = calculate_confidence(preds)
 
     return {
-        "trend": "UP" if pred == 1 else "DOWN",
-        "confidence": 0.7,  # RF ไม่มี prob ที่ stable มาก
-        "horizon": f"t+{horizon}"
+        "model": model,
+        "predictions": preds,
+        "trend": trend,
+        "confidence": confidence
     }
