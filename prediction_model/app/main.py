@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
+
 import os, json, joblib
 import numpy as np
 import pandas as pd
@@ -53,17 +54,18 @@ class Candle(PriceInput):
 def create_features(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
-    df["return_1d"]  = df["close"].pct_change(1)
-    df["return_7d"]  = df["close"].pct_change(7)
-    df["return_14d"] = df["close"].pct_change(14)
+    df["return_1d"]  = df["close"].pct_change(1).shift(1)
+    df["return_7d"]  = df["close"].pct_change(7).shift(1)
+    df["return_14d"] = df["close"].pct_change(14).shift(1)
 
-    df["ma_7"]  = df["close"].rolling(7).mean()
-    df["ma_14"] = df["close"].rolling(14).mean()
+    df["ma_7"]  = df["close"].rolling(7, min_periods=7).mean()
+    df["ma_14"] = df["close"].rolling(14, min_periods=14).mean()
     df["ma_ratio_7"]  = df["close"] / df["ma_7"]
     df["ma_ratio_14"] = df["close"] / df["ma_14"]
 
-    df["vol_7"]  = df["return_1d"].rolling(7).std()
-    df["vol_14"] = df["return_1d"].rolling(14).std()
+    returns = df["close"].pct_change(1)
+    df["vol_7"]  = returns.shift(1).rolling(7, min_periods=7).std()
+    df["vol_14"] = returns.shift(1).rolling(14, min_periods=14).std()
 
     df["close_lag1"]  = df["close"].shift(1)
     df["close_lag7"]  = df["close"].shift(7)
@@ -74,7 +76,6 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
     df["volume_lag14"] = df["volume"].shift(14)
 
     return df
-
 
 def load_feature_info(h: int):
     path = os.path.join(MODEL_DIR, f"feature_info+{h}.pkl")
@@ -171,7 +172,8 @@ def predict_tree(
     }
 
 
-# ---------- LSTM ----------@app.post("/predict/lstm")
+# ---------- LSTM ----------
+@app.post("/predict/lstm")
 def predict_lstm(
     rows: List[Candle],
     horizon: int = Query(1),
@@ -228,28 +230,35 @@ def predict_lstm(
     }
 
 
-@app.post("/predict/trend")
-def predict_trend(data: PriceInput, model: str = Query("rf", regex="^(rf|gb)$")):
-    preds = {}
 
+
+@app.post("/predict/trend")
+def predict_trend(
+    rows: List[PriceInput],   
+    model: str = Query("rf", regex="^(rf|gb)$")
+):
+    if len(rows) < 20:
+        raise HTTPException(400, "Not enough historical data")
+
+    df = pd.DataFrame([r.model_dump() for r in rows])
+    df_feat = create_features(df).dropna()
+
+    if len(df_feat) == 0:
+        raise HTTPException(400, "Not enough data after feature engineering")
+
+    preds = {}
     for h in HORIZONS:
         model_name = "random_forest" if model == "rf" else "gradient_boosting"
         model_obj, scaler = load_tree(model_name, h)
         feature_info = load_feature_info(h)
         FEATURE_COLS = feature_info["feature_cols"]
 
-        df = pd.DataFrame([data.model_dump()])
-        df_feat = create_features(df).dropna()
         X = scaler.transform(df_feat[FEATURE_COLS].values)
-
-        preds[f"t+{h}"] = float(model_obj.predict(X)[0])
-
-    trend = calculate_trend(preds)
-    confidence = calculate_confidence(preds)
+        preds[f"t+{h}"] = float(model_obj.predict(X)[-1])  # ใช้แท่งล่าสุด
 
     return {
         "model": model,
         "predictions": preds,
-        "trend": trend,
-        "confidence": confidence
+        "trend": calculate_trend(preds),
+        "confidence": calculate_confidence(preds),
     }

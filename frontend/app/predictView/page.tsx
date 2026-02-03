@@ -18,6 +18,10 @@ type Horizon = 1 | 7 | 14;
 type Trend = "Bullish" | "Bearish" | "sideways";
 type Signal = "BUY" | "SELL" | "HOLD";
 
+export function isLSTM(model: ModelType): model is "lstm" {
+  return model === "lstm";
+}
+
 export default function PredictView() {
   const chartRef = useRef<HTMLDivElement | null>(null);
   const chartApiRef = useRef<IChartApi | null>(null);
@@ -136,10 +140,12 @@ export default function PredictView() {
         predictSeriesRef.current.setData(lineData);
       }
   } else {
-    // RF / GB → decision support
+    const MIN_HISTORY = 30; 
+    const recentCandles = candles.slice(-MIN_HISTORY);
+
     res = await predictTrend(
       model,
-      candles[candles.length - 1]
+      recentCandles
     );
   }
 

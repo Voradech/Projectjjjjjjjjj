@@ -1,6 +1,6 @@
 // services/prediction.ts
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://localhost:8001";
 
 // ================= TYPES =================
 
@@ -111,6 +111,25 @@ export async function predictLSTM(
 
   if (!res.ok) {
     throw new Error("LSTM prediction failed");
+  }
+
+  return res.json();
+}
+export async function predictTrendWithHistory(
+  model: "rf" | "gb",
+  candles: Candle[]
+): Promise<TrendPredictResponse> {
+  const res = await fetch(
+    `${API_BASE}/predict/trend?model=${model}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(candles),
+    }
+  );
+
+  if (!res.ok) {
+    throw new Error("Trend prediction failed");
   }
 
   return res.json();
