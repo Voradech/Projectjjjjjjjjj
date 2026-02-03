@@ -81,15 +81,7 @@ def create_features(df):
 
 
 def prepare_train_test_split(df, test_size=0.3, horizons=[1, 7, 14]):
-    """
-     แยก train/test แบบไม่มี data leakage
-    
-    Steps:
-    1. Split ข้อมูลดิบก่อน
-    2. สร้าง features แยกกันทั้งสอง set
-    3. สร้าง targets แยกกัน
-    4. ลบ NaN
-    """
+
     # 1. Sort และ reset index
     df = df.sort_values("date").reset_index(drop=True)
     
