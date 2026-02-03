@@ -49,7 +49,7 @@ export default function PredictView() {
       width: chartRef.current.clientWidth || 900,
       layout: {
         background: { color: "#ffffff" },
-        textColor: "#ffffff",
+        textColor: "#000000",
       },
       grid: {
         vertLines: { visible: true },
