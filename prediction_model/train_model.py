@@ -323,9 +323,9 @@ for h in HORIZONS:
     lstm.fit(
         X_train_seq,
         y_train_seq,
-        epochs=50,
+        epochs=200,
         batch_size=32,
-        callbacks=[EarlyStopping(patience=5, restore_best_weights=True)],
+        callbacks=[EarlyStopping(patience=10, restore_best_weights=True)],
         verbose=0
     )
 
