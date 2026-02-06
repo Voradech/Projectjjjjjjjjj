@@ -105,9 +105,6 @@ export async function predictPrice(
   return response.json();
 }
 
-/**
- * ดูรายการโมเดลที่มีและโมเดลที่ดีที่สุดสำหรับแต่ละ horizon
- */
 export async function getAvailableModels(): Promise<ModelsResponse> {
   const response = await fetch(`${API_BASE}/models`);
 
@@ -118,9 +115,6 @@ export async function getAvailableModels(): Promise<ModelsResponse> {
   return response.json();
 }
 
-/**
- * ดู metrics ทั้งหมดของทุกโมเดล
- */
 export async function getAllMetrics(): Promise<AllMetrics> {
   const response = await fetch(`${API_BASE}/metrics`);
 
@@ -131,9 +125,6 @@ export async function getAllMetrics(): Promise<AllMetrics> {
   return response.json();
 }
 
-/**
- * Health check API
- */
 export async function checkHealth(): Promise<{ status: string; timestamp: string }> {
   const response = await fetch(`${API_BASE}/health`);
 
@@ -157,24 +148,15 @@ export async function predictMultipleHorizons(
 
 // ============= Helper Functions =============
 
-/**
- * แปลง direction accuracy เป็น percentage string
- */
 export function formatDirectionAccuracy(accuracy: number): string {
   return `${(accuracy * 100).toFixed(2)}%`;
 }
 
-/**
- * แปลง price change เป็น formatted string
- */
 export function formatPriceChange(change: number, percentage: number): string {
   const sign = change >= 0 ? "+" : "";
   return `${sign}$${change.toFixed(2)} (${sign}${percentage.toFixed(2)}%)`;
 }
 
-/**
- * แปลง return percentage เป็น formatted string
- */
 export function formatReturnPct(returnPct: number): string {
   const sign = returnPct >= 0 ? "+" : "";
   return `${sign}${returnPct.toFixed(2)}%`;
@@ -197,11 +179,11 @@ export function selectBestModel(metrics: {
   [modelName: string]: ModelMetrics;
 }): string {
   let bestModel = "";
-  let lowestRMSE = Infinity;
+  let highestDirectionAcc = 0;
 
   Object.entries(metrics).forEach(([modelName, metric]) => {
-    if (metric.rmse < lowestRMSE) {
-      lowestRMSE = metric.rmse;
+    if (metric.direction_accuracy > highestDirectionAcc) {
+      highestDirectionAcc = metric.direction_accuracy;
       bestModel = modelName;
     }
   });

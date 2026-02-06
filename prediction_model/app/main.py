@@ -3,6 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 import joblib
+import requests
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
@@ -71,33 +72,12 @@ def create_features(df):
     return df
 
 
-def load_latest_data():
-    df = pd.read_csv(DATA_PATH)
-    df["date"] = pd.to_datetime(df["date"])
-    df = df.sort_values("date").drop_duplicates()
-
-    sentiment_path = os.path.join(BASE_DIR, "data", "btc_sentiment.csv")
-
-    if os.path.exists(sentiment_path):
-        sent_df = pd.read_csv(sentiment_path)
-        sent_df["date"] = pd.to_datetime(sent_df["date"])
-        df = df.merge(sent_df, on="date", how="left")
-        df["sentiment"] = df["sentiment"].fillna(0)
-    else:
-        df["sentiment"] = 0
-
-    df = df.sort_values("date").reset_index(drop=True)
-
-    return df
-
-
-
 def get_best_model(horizon: int) -> tuple:
     """หาโมเดลที่ดีที่สุดจาก metrics.json"""
     metrics_path = os.path.join(BASE_DIR, "model", "metrics.json")
     
     if not os.path.exists(metrics_path):
-        raise HTTPException(status_code=404, detail="Metrics file not found. Please train models first.")
+        raise HTTPException(status_code=404, detail="Metrics file not found.")
     
     with open(metrics_path, "r", encoding="utf-8") as f:
         metrics = json.load(f)
@@ -106,24 +86,22 @@ def get_best_model(horizon: int) -> tuple:
     if horizon_key not in metrics:
         raise HTTPException(
             status_code=400,
-            detail=f"Horizon {horizon} not found in metrics. Available: {list(metrics.keys())}"
+            detail=f"Horizon {horizon} not found in metrics."
         )
     
     model_metrics = metrics[horizon_key]
     
-    # เปรียบเทียบโมเดลโดยใช้ RMSE (ยิ่งต่ำยิ่งดี)
     best_model_name = None
-    best_rmse = float('inf')
+    best_direction_acc = 0  
     
     for model_name, model_metric in model_metrics.items():
-        rmse = model_metric.get("rmse", float('inf'))
-        if rmse < best_rmse:
-            best_rmse = rmse
+        direction_acc = model_metric.get("direction_accuracy", 0)
+        if direction_acc > best_direction_acc:
+            best_direction_acc = direction_acc
             best_model_name = model_name
     
     return best_model_name, model_metrics[best_model_name]
-
-
+ 
 def load_model_and_scaler(horizon: int, model_name: str):
     """โหลดโมเดลและ scaler"""
     scaler_path = os.path.join(MODEL_DIR, f"scaler+{horizon}.pkl")
@@ -183,6 +161,72 @@ def predict_with_model(model, model_name: str, X_scaled, feature_cols, horizon: 
     
     return float(prediction)
 
+def fetch_market_data(limit=200):
+    url = "https://api.binance.com/api/v3/klines"
+    params = {
+        "symbol": "BTCUSDT",
+        "interval": "1d",
+        "limit": limit
+    }
+
+    res = requests.get(url, params=params)
+    res.raise_for_status()
+    data = res.json()
+
+    df = pd.DataFrame(
+        data,
+        columns=[
+            "open_time",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "close_time",
+            "quote_asset_volume",
+            "trades",
+            "taker_buy_base",
+            "taker_buy_quote",
+            "ignore",
+        ],
+    )
+
+    # ===== basic price columns =====
+    df["date"] = pd.to_datetime(df["open_time"], unit="ms")
+
+    df["open"] = df["open"].astype(float)
+    df["high"] = df["high"].astype(float)
+    df["low"] = df["low"].astype(float)
+    df["close"] = df["close"].astype(float)
+    df["volume"] = df["volume"].astype(float)
+
+    # ===== columns ที่โมเดลคุณต้องใช้ =====
+    df["quote_asset_volume"] = df["quote_asset_volume"].astype(float)
+    df["trades"] = df["trades"].astype(int)
+    df["taker_buy_base"] = df["taker_buy_base"].astype(float)
+    df["taker_buy_quote"] = df["taker_buy_quote"].astype(float)
+
+    # ===== sentiment (ไม่มีจาก Binance → ใส่ default) =====
+    df["sentiment"] = 0.0
+
+    # เรียงเวลาให้ชัวร์
+    df = df.sort_values("date").reset_index(drop=True)
+
+    return df[
+        [
+            "date",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "quote_asset_volume",
+            "trades",
+            "taker_buy_base",
+            "taker_buy_quote",
+            "sentiment",
+        ]
+    ]
 
 # ================= FASTAPI APP =================
 app = FastAPI(
@@ -282,9 +326,9 @@ def predict(request: PredictionRequest):
         model, scaler, feature_info = load_model_and_scaler(request.horizon, best_model_name)
         feature_cols = feature_info['feature_cols']
         
-        # 3. โหลดข้อมูลล่าสุด
-        df = load_latest_data()
-        
+        df = fetch_market_data(limit=200)
+
+
         # 4. สร้าง features
         df_features = create_features(df)
         df_features = df_features.dropna()
@@ -306,12 +350,13 @@ def predict(request: PredictionRequest):
         )
         
         # 7. แปลง return เป็นราคา
-        latest_close = float(df_features.iloc[-1]["close"])
-        latest_date = df_features.iloc[-1]["date"]
-        
+        latest_raw = df.iloc[-1]   # 👈 เพิ่มบรรทัดนี้ตรงนี้เลย
+        latest_close = float(latest_raw["close"])
+        latest_date = latest_raw["date"]
+
         predicted_price = latest_close * (1 + predicted_return)
         predicted_date = latest_date + timedelta(days=request.horizon)
-        
+                
         # 8. คำนวณ direction
         direction = "UP" if predicted_return > 0 else "DOWN"
         confidence = abs(predicted_return) * 100  # แปลงเป็น %
@@ -363,6 +408,6 @@ if __name__ == "__main__":
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
+        port=8001,
         log_level="info"
     )

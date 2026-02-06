@@ -35,7 +35,7 @@ export default function PredictView() {
 
   const query = useMemo(
     () => ({ symbol: "BTCUSDT", interval: "1d", limit: 220 }),
-    []
+    [],
   );
 
   // ================= CHART INIT =================
@@ -80,6 +80,7 @@ export default function PredictView() {
       setSelectedModel(null);
 
       const candles = await fetchActualCandles(query);
+
       if (!chartApiRef.current) return;
 
       // ---------- ACTUAL PRICE ----------
@@ -95,12 +96,10 @@ export default function PredictView() {
           wickUpColor: "#22c55e",
           wickDownColor: "#ef4444",
           borderVisible: false,
-        }
+        },
       );
 
-     const sortedCandles = [...candles].sort(
-      (a, b) => a.time - b.time
-      );
+      const sortedCandles = [...candles].sort((a, b) => a.time - b.time);
 
       actualSeriesRef.current.setData(
         sortedCandles.map((c: any) => ({
@@ -109,9 +108,8 @@ export default function PredictView() {
           high: +c.high,
           low: +c.low,
           close: +c.close,
-        }))
+        })),
       );
-
 
       // ---------- CLEAR OLD PREDICTION ----------
       if (predictSeriesRef.current) {
@@ -122,53 +120,69 @@ export default function PredictView() {
       // ================= BACKEND (AUTO MODEL) =================
       const res = await predictPrice(horizon);
 
-      // ---------- MODEL ----------
+      console.log("Last candle close:", candles[candles.length - 1].close);
+      console.log("API current price:", res.prediction.current_price);
+      console.log("API Response:", res);
+      console.log("Direction:", res.prediction.direction);
+      console.log("Predicted Price:", res.prediction.predicted_price);
+      console.log("Predicted Return:", res.prediction.predicted_return);
+
       setSelectedModel(res.best_model);
 
-      // ---------- PREDICTION LINE (2 POINTS) ----------
       predictSeriesRef.current = chartApiRef.current.addSeries(LineSeries, {
         color: "#2563eb",
         lineWidth: 2,
         lineStyle: 1, // dashed
       });
-
       const lastCandle = sortedCandles[sortedCandles.length - 1];
-      const predictionTime =
-        (lastCandle.time + horizon * 86400) as UTCTimestamp;
-     predictSeriesRef.current.setData([
-      {
-        time: lastCandle.time as UTCTimestamp,
-        value: Number(lastCandle.close),
-      },
-      {
-        time: predictionTime,
-        value: res.prediction.predicted_price,
-      },
-    ]);
 
-      // ---------- TREND & SIGNAL ----------
+      const startTime = Math.floor(
+        new Date(res.prediction.current_date).getTime() / 1000,
+      ) as UTCTimestamp;
+
+      const endTime = Math.floor(
+        new Date(res.prediction.predicted_date).getTime() / 1000,
+      ) as UTCTimestamp;
+      predictSeriesRef.current.setData([
+        {
+          time: startTime,
+          value: res.prediction.current_price,
+        },
+        {
+          time: endTime,
+          value: res.prediction.predicted_price,
+        },
+      ]);
+
+      console.log("=== Prediction Line Debug ===");
+      console.log(
+        "Start:",
+        new Date(startTime * 1000).toISOString(),
+        res.prediction.current_price,
+      );
+      console.log(
+        "End:",
+        new Date(endTime * 1000).toISOString(),
+        res.prediction.predicted_price,
+      );
       const direction = res.prediction.direction;
 
       setTrend(
         direction === "UP"
           ? "Bullish"
           : direction === "DOWN"
-          ? "Bearish"
-          : "sideways"
+            ? "Bearish"
+            : "sideways",
       );
 
       setSignal(
-        direction === "UP"
-          ? "BUY"
-          : direction === "DOWN"
-          ? "SELL"
-          : "HOLD"
+        direction === "UP" ? "BUY" : direction === "DOWN" ? "SELL" : "HOLD",
       );
 
       // ---------- CONFIDENCE (FROM METRICS) ----------
       const acc = res.model_metrics.direction_accuracy;
-      if (acc >= 0.65) setConfidence("HIGH");
-      else if (acc >= 0.55) setConfidence("MEDIUM");
+      if (acc >= 0.55) setConfidence("HIGH");
+      else if (acc >= 0.52) setConfidence("MEDIUM");
       else setConfidence("LOW");
 
       chartApiRef.current.timeScale().fitContent();
@@ -178,22 +192,18 @@ export default function PredictView() {
       setLoading(false);
     }
   };
-
   // ================= UI =================
   return (
-    <div className="min-h-screen bg-zinc-950 p-6 text-white space-y-6">
+    <div className="min-h-screen p-6 text-white space-y-6 py-14">
       {/* ================= HEADER ================= */}
       <div className="space-y-1">
-        <h1 className="text-3xl font-bold">Bitcoin Trend Prediction</h1>
-        <p className="text-sm opacity-70">
-          Metrics-driven auto model selection (RF / GB / LSTM)
-        </p>
+        <h1 className="text-3xl font-bold">Bitcoin Trend Prediction</h1>  
       </div>
 
       {/* ================= CONTROL ================= */}
-      <div className="flex flex-wrap gap-4 items-center bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+      <div className="flex flex-wrap gap-4 items-center bg-zinc-900 border border-zinc-800 rounded-xl p-4 ">
         <div className="flex items-center gap-2">
-          <span className="text-sm opacity-70">Prediction Horizon</span>
+          <span className="text-sm opacity-70">Prediction</span>
           <select
             value={horizon}
             onChange={(e) => setHorizon(Number(e.target.value) as Horizon)}
@@ -210,7 +220,7 @@ export default function PredictView() {
           disabled={loading}
           className="ml-auto rounded-lg bg-blue-600 hover:bg-blue-500 px-5 py-2 font-semibold disabled:opacity-50"
         >
-          {loading ? "Predicting..." : "Run Prediction"}
+          {loading ? "Predicting..." : " Prediction "}
         </button>
       </div>
 
@@ -235,15 +245,15 @@ export default function PredictView() {
                 signal === "BUY"
                   ? "text-green-400"
                   : signal === "SELL"
-                  ? "text-red-400"
-                  : "text-zinc-300"
+                    ? "text-red-400"
+                    : "text-zinc-300"
               }`}
             >
               {signal}
             </div>
           </div>
 
-          <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5 space-y-2">
+         {/*  <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5 space-y-2">
             <div className="text-sm opacity-60">Next {horizon} day(s)</div>
             <div className="text-sm">
               Model:{" "}
@@ -256,14 +266,14 @@ export default function PredictView() {
                   confidence === "HIGH"
                     ? "bg-green-500/20 text-green-400"
                     : confidence === "MEDIUM"
-                    ? "bg-yellow-500/20 text-yellow-400"
-                    : "bg-zinc-500/20 text-zinc-300"
+                      ? "bg-yellow-500/20 text-yellow-400"
+                      : "bg-zinc-500/20 text-zinc-300"
                 }`}
               >
                 Confidence: {confidence}
               </span>
             )}
-          </div>
+          </div> */}
         </div>
       )}
 
@@ -271,7 +281,8 @@ export default function PredictView() {
       <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
         <div ref={chartRef} className="w-full h-[520px]" />
         <div className="text-xs opacity-60 mt-2">
-          Candlestick = Actual Price | Dashed Line = Auto-selected Model Forecast
+          Candlestick = Actual Price | Dashed Line = Auto-selected Model
+          Forecast
         </div>
       </div>
     </div>
