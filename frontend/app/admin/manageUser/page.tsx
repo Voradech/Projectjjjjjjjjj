@@ -16,13 +16,19 @@ export default function ManageUser() {
   const [newRole, setNewRole] = useState<string>("user");
 
   useEffect(() => {
+    
     fetch("http://localhost:8000/admin/users", {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-      },
+      credentials: "include", 
     })
-      .then((res) => res.json())
-      .then(setUsers);
+      .then((res) => {
+        if (res.status === 401 || res.status === 403) {
+          window.location.href = "/login";
+          return;
+        }
+        return res.json();
+      })
+      .then(setUsers)
+      .catch(console.error);
   }, []);
 
   const openConfirmRole = (user: User, role: string) => {
@@ -36,6 +42,7 @@ export default function ManageUser() {
     setSelectedUser(user);
     setAction("delete");
     setConfirmOpen(true);
+    
   };
 
   const handleConfirm = async () => {
@@ -46,8 +53,8 @@ export default function ManageUser() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
+        credentials: "include", // ✅
         body: JSON.stringify({ role: newRole }),
       });
 
@@ -61,9 +68,7 @@ export default function ManageUser() {
     if (action === "delete") {
       await fetch(`http://localhost:8000/api/admin/users/${selectedUser.id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-        },
+        credentials: "include", // ✅
       });
 
       setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
@@ -72,6 +77,7 @@ export default function ManageUser() {
     setConfirmOpen(false);
     setSelectedUser(null);
     setAction(null);
+    
   };
 
   return (
@@ -122,7 +128,6 @@ export default function ManageUser() {
         </table>
       </div>
 
-      {/* Confirm Modal */}
       {confirmOpen && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-xl p-6 w-[360px] shadow-xl">

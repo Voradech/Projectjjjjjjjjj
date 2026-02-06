@@ -10,17 +10,21 @@ export function middleware(req: NextRequest) {
     path === "/register" ||
     path === "/forgotPassword";
 
+  // Redirect to login if not authenticated and trying to access protected route
   if (!accessToken && !isAuthPage) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
+  // Redirect authenticated users away from auth pages
   if (accessToken && isAuthPage) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  if (path.startsWith("/admin") && role !== "admin") {
-    return NextResponse.redirect(new URL("/admin/manageUser", req.url)); 
-  }
+  // Protect admin routes - redirect non-admins to home page
+// แก้โดยทำให้เข้มงวดขึ้น
+if (path.startsWith("/admin") && role?.trim().toLowerCase() !== "admin") {
+  return NextResponse.redirect(new URL("/admin/manageUser", req.url));
+}
 
   return NextResponse.next();
 }

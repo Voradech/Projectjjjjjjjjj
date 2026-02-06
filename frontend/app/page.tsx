@@ -51,7 +51,7 @@ export default function ViewGraphPage() {
 
     const chart = createChart(chartRef.current, {
       height: 500,
-      width: chartRef.current.clientWidth || 900,
+      width: chartRef.current.clientWidth || 700,
 
       //  เส้นตาราง/ขอบกราฟ
       grid: {
@@ -262,28 +262,14 @@ export default function ViewGraphPage() {
   return (<div>
     <div className="w-full p-4 space-y-3">
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center py-5">
+      
 
-        <button
-          onClick={loadMore}
-          className="px-3 py-1 rounded-lg border ml-auto"
-          disabled={loading}
-          title="ดึงย้อนหลังเพิ่ม (ครั้งละ 1000 แท่ง)"
-        >
-          {loading ? "Loading..." : "Load more (1000)"}
-        </button>
-
-        <button
-          onClick={loadAllAndShowOnChart}
-          className="px-3 py-1 rounded-lg border"
-          disabled={loading}
-          title="ดึงย้อนหลังต่อเนื่อง (ครั้งละ 1000) แล้วเอาทั้งหมดไปแสดงบนกราฟ"
-        >
-          {loading ? "Loading..." : "Load ALL (max)"}
-        </button>
+     
+      
       </div>
 
-      {err && <div className="text-red-500 text-sm">❌ {err}</div>}
+      
 
 
     </div>

@@ -73,6 +73,8 @@ authRouter.post("/register", async (req, res) => {
 
 /* ================= login ================= */
 
+/* ================= login ================= */
+
 authRouter.post("/login", async (req, res) => {
   try {
     const { username, password, role } = req.body as {
@@ -107,13 +109,14 @@ authRouter.post("/login", async (req, res) => {
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = signAccessToken(payload);
     const refreshToken = signRefreshToken(payload);
-    
 
     await pool.query(
       `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
        VALUES ($1, $2, NOW() + interval '14 days')`,
       [user.id, sha256(refreshToken)],
     );
+
+    // ✅ Set accessToken cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       sameSite: "lax",
@@ -121,7 +124,18 @@ authRouter.post("/login", async (req, res) => {
       path: "/",
       maxAge: 15 * 60 * 1000, // 15 นาที
     });
+
+    // ✅ Set refreshToken cookie
     res.cookie("refreshToken", refreshToken, refreshCookieOptions());
+
+    // ✅ เพิ่มบรรทัดนี้! Set role cookie
+    res.cookie("role", user.role, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 15 * 60 * 1000, // 15 นาที (เท่ากับ accessToken)
+    });
 
     return res.json({ role: user.role });
   } catch (e) {
@@ -129,6 +143,7 @@ authRouter.post("/login", async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 });
+/* ================= refresh ================= */
 
 /* ================= refresh ================= */
 
@@ -167,7 +182,17 @@ authRouter.post("/refresh", async (req, res) => {
       role: payload.role,
     });
 
+    // ✅ Set accessToken cookie
     res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 15 * 60 * 1000,
+    });
+
+    // ✅ เพิ่มบรรทัดนี้! Refresh role cookie ด้วย
+    res.cookie("role", payload.role, {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
@@ -184,9 +209,14 @@ authRouter.post("/refresh", async (req, res) => {
 
 /* ================= logout ================= */
 
+/* ================= logout ================= */
+
 authRouter.post("/logout", async (req, res) => {
+  // ✅ Clear ทุก cookies
   res.clearCookie("accessToken");
   res.clearCookie("refreshToken");
+  res.clearCookie("role"); // เพิ่มบรรทัดนี้!
+
   try {
     const token = req.cookies?.refreshToken as string | undefined;
 

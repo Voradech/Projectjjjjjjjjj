@@ -98,7 +98,7 @@ export default function Navbar() {
         {/* Admin Link (โชว์เฉพาะถ้าเป็น admin) */}
         {user?.role === "admin" && (
           <Link
-            href="/admin/dashboard"
+            href="/admin/manageUser"
             className="text-blue-400 hover:text-blue-300 flex items-center gap-2 transition-colors"
           >
             <ShieldCheck size={18} /> Admin Portal
