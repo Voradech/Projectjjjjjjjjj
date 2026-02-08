@@ -31,7 +31,7 @@ app.use("/route", routes);
 app.use("/auth", authRouter);
 app.use("/api/alerts", alertsRouter);
 app.use("/api", priceRouter);
-app.use("/admin", adminRouter);
+app.use("/api/admin", adminRouter);
 
 app.get("/", async (req: Request, res: Response) => {
   try {

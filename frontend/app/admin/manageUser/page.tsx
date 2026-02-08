@@ -17,7 +17,7 @@ export default function ManageUser() {
 
   useEffect(() => {
     
-    fetch("http://localhost:8000/admin/users", {
+    fetch("http://localhost:8000/api/admin/users", {
       credentials: "include", 
     })
       .then((res) => {
@@ -110,8 +110,8 @@ export default function ManageUser() {
                     }
                     className="bg-slate-900 border border-slate-600 rounded-lg px-3 py-1 text-white"
                   >
-                    <option value="user">user</option>
-                    <option value="admin">admin</option>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
                   </select>
                 </td>
                 <td className="px-4 py-3 text-center">

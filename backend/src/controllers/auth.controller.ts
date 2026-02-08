@@ -12,7 +12,6 @@ export const login = async (req: any, res: any) => {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 
-
   res.json({
     id: payload.sub,
     email: payload.email,

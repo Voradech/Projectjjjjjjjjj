@@ -14,14 +14,11 @@ export const updateUser = async (req: Request, res: Response) => {
 };
 
 export const deleteUser = async (req: Request, res: Response) => {
-  if (!req.user) {
-    return res.status(401).json({ message: "Unauthorized" });
+  const count = await UserRepo.deleteById(req.params.id);
+
+  if (count === 0) {
+    return res.status(404).json({ message: "User not found" });
   }
 
-  if (req.user.id === req.params.id) {
-    return res.status(400).json({ message: "Cannot delete yourself" });
-  }
-
-  await UserRepo.deleteById(req.params.id);
-  res.json({ message: "User deleted" });
+  res.json({ success: true });
 };

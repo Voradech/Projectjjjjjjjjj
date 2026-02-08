@@ -16,10 +16,11 @@ export const UserRepo = {
     );
   },
 
-  deleteById(id: string) {
-    return pool.query(
-      `DELETE FROM users WHERE id=$1`,
-      [id]
-    );
-  }
+  deleteById: async (id: string) => {
+  const result = await pool.query(
+    `DELETE FROM users WHERE id = $1`,
+    [id]
+  );
+  return result.rowCount;
+}
 };

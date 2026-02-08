@@ -44,7 +44,6 @@ export default function Register() {
       setError("Password must be at least 8 characters.");
       return;
     }
-
     try {
       setLoading(true);
       console.log(process.env.NEXT_PUBLIC_API_URL);
