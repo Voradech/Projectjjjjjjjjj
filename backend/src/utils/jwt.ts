@@ -1,8 +1,6 @@
 import jwt, { JwtPayload } from "jsonwebtoken";
 
 /* ================= TYPES ================= */
-
-//  Payload ของระบบเราเอง
 export interface AuthTokenPayload extends JwtPayload {
   sub: string;
   email: string;
@@ -13,7 +11,7 @@ export interface AuthTokenPayload extends JwtPayload {
 
 export function signAccessToken(payload: AuthTokenPayload) {
   return jwt.sign(payload, process.env.JWT_ACCESS_SECRET!, {
-    expiresIn: "15m",
+    expiresIn: "30m",
   });
 }
 

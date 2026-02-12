@@ -72,9 +72,6 @@ authRouter.post("/register", async (req, res) => {
 });
 
 /* ================= login ================= */
-
-/* ================= login ================= */
-
 authRouter.post("/login", async (req, res) => {
   try {
     const { username, password, role } = req.body as {
@@ -144,9 +141,6 @@ authRouter.post("/login", async (req, res) => {
   }
 });
 /* ================= refresh ================= */
-
-/* ================= refresh ================= */
-
 authRouter.post("/refresh", async (req, res) => {
   try {
     const token = req.cookies?.refreshToken as string | undefined;
@@ -212,10 +206,10 @@ authRouter.post("/refresh", async (req, res) => {
 /* ================= logout ================= */
 
 authRouter.post("/logout", async (req, res) => {
-  // ✅ Clear ทุก cookies
+
   res.clearCookie("accessToken");
   res.clearCookie("refreshToken");
-  res.clearCookie("role"); // เพิ่มบรรทัดนี้!
+  res.clearCookie("role"); 
 
   try {
     const token = req.cookies?.refreshToken as string | undefined;

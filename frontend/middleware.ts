@@ -17,7 +17,7 @@ export function middleware(req: NextRequest) {
 
   // Redirect authenticated users away from auth pages
   if (accessToken && isAuthPage) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   // Protect admin routes - redirect non-admins to home page
@@ -34,7 +34,7 @@ export const config = {
     "/login",
     "/register",
     "/forgotPassword",
-    "/alert",
+    "/alerts",
     "/predictView",
     "/viewGraph",
     "/admin/:path*",
