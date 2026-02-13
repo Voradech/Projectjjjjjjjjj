@@ -192,6 +192,23 @@ export default function PredictView() {
       setLoading(false);
     }
   };
+  const trendTH: Record<Trend, string> = {
+  Bullish: "ขาขึ้น",
+  Bearish: "ขาลง",
+  sideways: "Sideway / แกว่งตัว",
+};
+
+const signalTH: Record<Signal, string> = {
+  BUY: "ซื้อ",
+  SELL: "ขาย",
+  HOLD: "ถือรอ",
+};
+
+const confidenceTH: Record<Confidence, string> = {
+  HIGH: "สูง",
+  MEDIUM: "ปานกลาง",
+  LOW: "ต่ำ",
+};
   // ================= UI =================
   return (
     <div className="min-h-screen p-6 text-white space-y-6 py-14">
@@ -235,7 +252,7 @@ export default function PredictView() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
             <div className="text-sm opacity-60">Market Trend</div>
-            <div className="text-3xl font-bold mt-1">{trend}</div>
+            <div className="text-3xl font-bold mt-1">{trend ? trendTH[trend] : "-"}</div>
           </div>
 
           <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
@@ -249,17 +266,17 @@ export default function PredictView() {
                     : "text-zinc-300"
               }`}
             >
-              {signal}
+              {signal ? signalTH[signal] : "-"}
             </div>
           </div>
 
-         {/*  <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5 space-y-2">
+          <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5 space-y-2">
             <div className="text-sm opacity-60">Next {horizon} day(s)</div>
             <div className="text-sm">
               Model:{" "}
               <span className="font-semibold uppercase">{selectedModel}</span>
             </div>
-
+{/* 
             {confidence && (
               <span
                 className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
@@ -272,8 +289,8 @@ export default function PredictView() {
               >
                 Confidence: {confidence}
               </span>
-            )}
-          </div> */}
+            )} */}
+          </div>
         </div>
       )}
 

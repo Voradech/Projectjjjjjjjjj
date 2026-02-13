@@ -30,6 +30,7 @@
     "nodemailer": "^7.0.12",
     "pg": "^8.16.3",
     "rss-parser": "^3.13.0",
+    "socket": "^1.1.63",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {

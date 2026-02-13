@@ -170,7 +170,7 @@ export default function AlertsPage() {
         onClick={() => setShowForm(!showForm)}
         className="bg-cyan-600 hover:bg-cyan-700 transition px-4 py-2 rounded-lg mb-6"
       >
-        + Add Alert
+        + เพิ่มการแจ้งเตือนใหม่
       </button>
 
       {showForm && (
@@ -305,7 +305,7 @@ function AddAlertForm({ onSuccess }: { onSuccess: () => void }) {
     <div className="bg-[#1e293b] p-6 rounded-xl mb-6 border border-slate-700 shadow-xl space-y-5">
 
       <h2 className="text-lg font-semibold text-cyan-400">
-        Create New Alert
+        สร้างการเเจ้งเตือนใหม่
       </h2>
 
       <select
@@ -313,12 +313,12 @@ function AddAlertForm({ onSuccess }: { onSuccess: () => void }) {
         onChange={(e) => setType(e.target.value)}
         className="bg-slate-800 p-3 rounded-lg w-full border border-slate-700"
       >
-        <option value="PRICE_UP">Price Above</option>
-        <option value="PRICE_DOWN">Price Below</option>
-        <option value="VOLATILITY">Volatility</option>
-        <option value="PREDICT_UP">Predict Up</option>
-        <option value="PREDICT_DOWN">Predict Down</option>
-        <option value="TREND_CHANGE">Trend Change (EMA Cross)</option>
+        <option value="PRICE_UP">ราคาสูงกว่าค่าที่กำหนด</option>
+        <option value="PRICE_DOWN">ราคาต่ำกว่าค่าที่กำหนด</option>
+        <option value="VOLATILITY">ความผันผวน</option>
+        <option value="PREDICT_UP">คาดการณ์ว่าราคาจะขึ้น</option>
+        <option value="PREDICT_DOWN">คาดการณ์ว่าราคาจะลง</option>
+        <option value="TREND_CHANGE">การเปลี่ยนแนวโน้ม (EMA ตัดกัน)</option>
       </select>
 
       {(type === "PRICE_UP" || type === "PRICE_DOWN") && (
@@ -370,7 +370,7 @@ function AddAlertForm({ onSuccess }: { onSuccess: () => void }) {
         onClick={handleSubmit}
         className="bg-cyan-600 hover:bg-cyan-700 transition px-4 py-3 rounded-lg w-full font-semibold"
       >
-        Save Alert
+        บันทึกการแจ้งเตือน
       </button>
     </div>
   );
