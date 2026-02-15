@@ -230,6 +230,7 @@ export default function ViewGraphPage() {
         {/* Header Section: Title & Controls */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
+           
             <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-2">
               <span className="w-3 h-8 bg-emerald-500 rounded-full inline-block"></span>
               BTC / USDT
