@@ -2,7 +2,7 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #0f172a;
+  --foreground: #020617;
 }
 
 @theme inline {
@@ -14,7 +14,7 @@
   
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
+    --background: #020617;
     --foreground: #ededed;
     
   }
@@ -23,5 +23,5 @@
 body {
     /* background-image: radial-gradient(circle at 50% 0%, #0f172a, #151e32); */
     /* background-image: radial-gradient(circle at 50% 0%, #0f172a, #0f172a); */
-    background-image: radial-gradient(circle at 50% 0%, #151e32, #151e32);
+    background-image: radial-gradient(circle at 50% 0%, #020617, #020617);
 }

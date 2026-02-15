@@ -54,7 +54,7 @@ export default function Navbar() {
 
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-[#020617] backdrop-blur-md border-b border-navy-700 px-6 py-4 flex justify-between items-center shadow-lg shadow-black/20">
+    <nav className="fixed top-0 w-full z-50 bg-[#020617] backdrop-blur-md border-b border-navy-700 px-6 py-5 flex justify-between items-center shadow-lg shadow-black/20">
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2 cursor-pointer group">
         {/* <div className="w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_10px_#10B981] group-hover:scale-150 transition-transform"></div> */}
@@ -94,17 +94,6 @@ export default function Navbar() {
       </div>
       {/* Menu & Auth */}
       <div className="flex gap-6 text-sm font-medium text-gray-400 items-center">
-  
-        {/* Admin Link (โชว์เฉพาะถ้าเป็น admin) */}
-        {user?.role === "admin" && (
-          <Link
-            href="/admin/manageUser"
-            className="text-blue-400 hover:text-blue-300 flex items-center gap-2 transition-colors"
-          >
-            <ShieldCheck size={18} /> Admin Portal
-          </Link>
-        )}
-
         {/* Auth Section */}
         <div className="h-6 w-px bg-navy-700 mx-2"></div>
 

@@ -272,10 +272,7 @@ const confidenceTH: Record<Confidence, string> = {
 
           <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5 space-y-2">
             <div className="text-sm opacity-60">Next {horizon} day(s)</div>
-            <div className="text-sm">
-              Model:{" "}
-              <span className="font-semibold uppercase">{selectedModel}</span>
-            </div>
+     
 {/* 
             {confidence && (
               <span
