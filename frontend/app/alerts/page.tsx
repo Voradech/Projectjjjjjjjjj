@@ -11,11 +11,28 @@ type Alert = {
   confidence_threshold?: number;
   is_active: boolean;
 };
-
+const getAlertLabel = (type: string) => {
+  switch (type) {
+    case "PRICE_UP":
+      return "แจ้งเตือนเมื่อราคาสูงกว่าที่กำหนด";
+    case "PRICE_DOWN":
+      return "แจ้งเตือนเมื่อราคาต่ำกว่าที่กำหนด";
+    case "VOLATILITY":
+      return "แจ้งเตือนเมื่อเกิดความผันผวน";
+    case "PREDICT_UP":
+      return "าดการณ์ว่าราคาจะขึ้น";
+    case "PREDICT_DOWN":
+      return "คาดการณ์ว่าราคาจะลง";
+    case "TREND_CHANGE":
+      return "แนวโน้มเปลี่ยน (เส้น EMA ตัดกัน)";
+    default:
+      return type;
+  }
+};
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [showForm, setShowForm] = useState(false);
-
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [systemEnabled, setSystemEnabled] = useState<boolean>(false);
 
@@ -54,10 +71,9 @@ export default function AlertsPage() {
   const fetchSystemStatus = async () => {
     if (role !== "admin") return;
 
-    const res = await fetch(
-      "http://localhost:8000/api/admin/system-alert",
-      { credentials: "include" }
-    );
+    const res = await fetch("http://localhost:8000/api/admin/system-alert", {
+      credentials: "include",
+    });
 
     if (!res.ok) return;
 
@@ -68,17 +84,14 @@ export default function AlertsPage() {
   const toggleSystem = async () => {
     if (role !== "admin") return;
 
-    await fetch(
-      "http://localhost:8000/api/admin/system-alert",
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          enabled: !systemEnabled,
-        }),
-      }
-    );
+    await fetch("http://localhost:8000/api/admin/system-alert", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        enabled: !systemEnabled,
+      }),
+    });
 
     fetchSystemStatus();
   };
@@ -105,7 +118,15 @@ export default function AlertsPage() {
 
     fetchAlerts();
   };
+  /*   const sendTestAlert = async () => {
+  await fetch("http://localhost:8000/api/alerts/test-alert", {
+    method: "POST",
+    credentials: "include",
+  });
 
+  alert("Test alert triggered 🚀");
+};
+ */
   const deleteAlert = async (id: number) => {
     await fetch(`http://localhost:8000/alerts/${id}`, {
       method: "DELETE",
@@ -119,14 +140,18 @@ export default function AlertsPage() {
     <div className="p-8 text-white max-w-4xl mx-auto pt-16">
       <h1 className="text-3xl font-bold mb-6 text-cyan-400">
         BTC Alert Center
+        {/*    <button
+  onClick={sendTestAlert}
+  className="bg-purple-600 hover:bg-purple-700 transition px-4 py-2 rounded-lg mb-4"
+>
+   Force Test Alert
+</button> */}
       </h1>
 
       {/* GLOBAL TOGGLE - ADMIN ONLY */}
       {role === "admin" && (
         <div className="flex items-center gap-4 mb-8 bg-[#1e293b] p-4 rounded-xl border border-slate-700">
-          <span className="text-slate-400">
-            Alert System
-          </span>
+          <span className="text-slate-400">Alert System</span>
 
           <label className="relative inline-flex items-center cursor-pointer">
             <input
@@ -155,9 +180,7 @@ export default function AlertsPage() {
 
           <span
             className={`text-sm ${
-              systemEnabled
-                ? "text-green-400"
-                : "text-red-400"
+              systemEnabled ? "text-green-400" : "text-red-400"
             }`}
           >
             {systemEnabled ? "Enabled" : "Disabled"}
@@ -192,9 +215,7 @@ export default function AlertsPage() {
             <div className="flex justify-between items-center">
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <p className="font-semibold text-cyan-400">
-                    {alert.type}
-                  </p>
+                  <p className="font-semibold text-cyan-400"> {getAlertLabel(alert.type)}</p>
 
                   <span
                     className={`text-xs px-2 py-1 rounded ${
@@ -203,29 +224,23 @@ export default function AlertsPage() {
                         : "bg-gray-500/20 text-gray-400"
                     }`}
                   >
-                    {alert.is_active
-                      ? "Active"
-                      : "Disabled"}
+                    {alert.is_active ? "กำลังใช้งาน" : "ปิดการใช้งาน"}
                   </span>
                 </div>
 
                 {alert.target_price && (
-                  <p className="text-slate-400">
-                    Target: {alert.target_price}
-                  </p>
+                  <p className="text-slate-400">Target: {alert.target_price}</p>
                 )}
 
                 {alert.percentage && (
                   <p className="text-slate-400">
-                    {alert.time_window} นาที |{" "}
-                    {alert.percentage}%
+                    {alert.time_window} นาที | {alert.percentage}%
                   </p>
                 )}
 
                 {alert.confidence_threshold && (
                   <p className="text-slate-400">
-                    Confidence ≥{" "}
-                    {alert.confidence_threshold}%
+                    Confidence ≥ {alert.confidence_threshold}%
                   </p>
                 )}
               </div>
@@ -235,12 +250,7 @@ export default function AlertsPage() {
                   <input
                     type="checkbox"
                     checked={alert.is_active}
-                    onChange={() =>
-                      toggleAlert(
-                        alert.id,
-                        alert.is_active
-                      )
-                    }
+                    onChange={() => toggleAlert(alert.id, alert.is_active)}
                     className="sr-only peer"
                   />
                   <div
@@ -262,9 +272,7 @@ export default function AlertsPage() {
                 </label>
 
                 <button
-                  onClick={() =>
-                    deleteAlert(alert.id)
-                  }
+                  onClick={() => setDeleteTarget(alert.id)}
                   className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm"
                 >
                   Delete
@@ -274,6 +282,38 @@ export default function AlertsPage() {
           </div>
         ))}
       </div>
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#1e293b] p-6 rounded-xl w-[350px] border border-slate-700 shadow-2xl">
+            <h2 className="text-lg font-semibold text-red-400 mb-4">
+              Confirm Delete
+            </h2>
+
+            <p className="text-slate-400 mb-6">
+              Are you sure you want to delete this alert?
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 rounded bg-gray-600 hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={async () => {
+                  await deleteAlert(deleteTarget);
+                  setDeleteTarget(null);
+                }}
+                className="px-4 py-2 rounded bg-red-600 hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -303,7 +343,6 @@ function AddAlertForm({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <div className="bg-[#1e293b] p-6 rounded-xl mb-6 border border-slate-700 shadow-xl space-y-5">
-
       <h2 className="text-lg font-semibold text-cyan-400">
         สร้างการเเจ้งเตือนใหม่
       </h2>

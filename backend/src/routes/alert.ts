@@ -1,12 +1,60 @@
 import { Router } from "express";
+import { pool } from "../db/pool";
+import { sendAlertEmail } from "../services/mail.service";
+import { io } from "../server";
 import { authRequired } from "../middlewares/authRequired";
-import { createAlert } from "../controllers/alert.controller";
-import { getMyNotifications } from "../controllers/alert.controller";
-import { getMyAlerts } from "../controllers/alert.controller";
+import { getMyNotifications,deleteAlert,getMyAlerts,createAlert,updateAlert } from "../controllers/alert.controller";
+import { checkAlerts } from "../jobs/checkAlerts";
 const router = Router();
+
 
 router.post("/", authRequired, createAlert);
 router.get("/", authRequired, getMyAlerts);
 router.get("/notifications", authRequired, getMyNotifications);
+router.patch("/:id", authRequired, updateAlert);
 
+
+router.delete("/:id", authRequired, deleteAlert);
+
+router.post("/test-alert", authRequired, async (req: any, res: any) => {
+  try {
+    const userId = req.user.id;
+
+    // 🔹 ดึง email user
+    const { rows } = await pool.query(
+      `SELECT email FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    const email = rows[0]?.email;
+
+    const message = `🚨 TEST ALERT: BTC is testing at ${Date.now()}`;
+
+    // 🔹 Insert notification
+    const result = await pool.query(
+      `INSERT INTO notifications (user_id, message)
+       VALUES ($1, $2)
+       RETURNING *`,
+      [userId, message]
+    );
+
+    const notification = result.rows[0];
+
+    // 🔹 ยิง realtime
+    io.to(`user_${userId}`).emit(
+      "new_notification",
+      notification
+    );
+
+    // 🔹 ส่งเมล
+    if (email) {
+      await sendAlertEmail(email, message);
+    }
+
+    res.json({ message: "Test alert sent 🚀" });
+  } catch (err) {
+    console.error("Test alert error:", err);
+    res.status(500).json({ message: "Error sending test alert" });
+  }
+});
 export default router;

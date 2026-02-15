@@ -283,9 +283,6 @@ export const checkAlerts = async () => {
       }
     }
 
-    console.log(
-      `✅ checkAlerts finished in ${Date.now() - startTime} ms`
-    );
 
   } catch (error) {
     console.error("❌ checkAlerts error:", error);

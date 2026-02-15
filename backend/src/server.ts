@@ -14,8 +14,7 @@ import { Request, Response } from "express";
 import { pool } from "./db/pool";
 import newsRouter from "./routes/new";
 import routes from "./route";
-
-import alertRouter from "./routes/alert";
+import alertsRouter from "./routes/alert";
 
 const app = express();
 const server = http.createServer(app);
@@ -29,7 +28,7 @@ export const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  console.log("🟢 Client connected:", socket.id);
+  console.log(" Client connected:", socket.id);
 
   // join room ตาม userId
   socket.on("join", (userId: number) => {
@@ -51,13 +50,18 @@ app.use(
     credentials: true,
   })
 );
+app.use("/api/alerts", alertsRouter);
 
+app.get("/test-alert", async (req, res) => {
+  await checkAlerts();
+  res.json({ message: "Check executed" });
+});
 // ================= Routes =================
 app.use(routes);
 app.use("/api/news", newsRouter);
 app.use("/route", routes);
 app.use("/auth", authRouter);
-app.use("/alerts", alertRouter);
+app.use("/alerts", alertsRouter);
 app.use("/api", priceRouter);
 app.use("/api/admin", adminRouter);
 

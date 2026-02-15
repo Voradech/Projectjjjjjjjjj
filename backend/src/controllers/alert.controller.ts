@@ -80,3 +80,31 @@ export const getMyNotifications = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+export const deleteAlert = async (req: any, res: any) => {
+  const alertId = req.params.id;
+  const userId = req.user.id;
+
+  const result = await pool.query(
+    `DELETE FROM alerts 
+     WHERE id = $1 AND user_id = $2`,
+    [alertId, userId]
+  );
+
+  if (result.rowCount === 0) {
+    return res.status(404).json({ message: "Alert not found" });
+  }
+
+  res.json({ message: "Alert deleted" });
+};
+export const updateAlert = async (req: any, res: any) => {
+  const { is_active } = req.body;
+
+  await pool.query(
+    `UPDATE alerts
+     SET is_active = $1
+     WHERE id = $2 AND user_id = $3`,
+    [is_active, req.params.id, req.user.id]
+  );
+
+  res.json({ message: "Alert updated" });
+};
