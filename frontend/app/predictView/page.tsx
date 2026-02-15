@@ -183,7 +183,6 @@ export default function PredictView() {
       predictSeriesRef.current = chartApiRef.current.addSeries(LineSeries, {
         color: "#3b82f6", // Blue-500
         lineWidth: 2,
-        lineStyle: 2, // Dashed
         crosshairMarkerVisible: true,
       });
       
@@ -227,13 +226,10 @@ export default function PredictView() {
       else setConfidence("LOW");
 
       const dataLen = sortedCandles.length;
-
-      // สั่งให้กราฟ Zoom ไปที่ช่วง: 30 วันก่อนหน้า -> ไปจนถึง วันที่ทำนายจบ + เผื่อที่ว่างขวานิดหน่อย
-      chartApiRef.current.timeScale().fitContent();
-    /*   chartApiRef.current.timeScale().setVisibleLogicalRange({
-        from: dataLen - 30,           // ถอยหลังไปดูประวัติแค่ 30 วันพอ
-        to: dataLen + horizon + 5,    // ไปข้างหน้าเท่าจำนวนวันที่ทำนาย + เผื่อที่ว่าง 5 ช่อง
-      }); */
+      chartApiRef.current.timeScale().setVisibleLogicalRange({
+        from: dataLen - 10,         
+        to: dataLen + horizon + 5,    
+      });
       
     } catch (e: any) {
     
@@ -244,8 +240,8 @@ export default function PredictView() {
   };
 
   const trendTH: Record<Trend, string> = {
-    Bullish: "ขาขึ้น (Bullish)",
-    Bearish: "ขาลง (Bearish)",
+    Bullish: "แนวโน้มขาขึ้น",
+    Bearish: "แนวโน้มขาลง",
     sideways: "Sideway / แกว่งตัว",
   };
 
@@ -277,7 +273,7 @@ export default function PredictView() {
             <h1 className="text-3xl font-bold flex items-center gap-3">
               <BrainCircuit className="text-emerald-400" size={32} />
               <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                Bitcoin AI Predictor
+                Bitcoin Predictor
               </span>
             </h1>
             <p className="text-gray-400 text-sm mt-1 ml-1">

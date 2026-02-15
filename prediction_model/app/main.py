@@ -33,11 +33,10 @@ class PredictionRequest(BaseModel):
 class PredictionResponse(BaseModel):
     horizon: int
     best_model: str
-    backtest_series: List[Dict[str, Any]]
     model_metrics: Dict[str, float]
     prediction: Dict[str, Any]
     metadata: Dict[str, Any]
-
+    backtest_series: List[Dict[str, Any]]
 
 # ================= HELPER FUNCTIONS =================
 def create_features(df):
@@ -161,6 +160,7 @@ def predict_with_model(model, model_name: str, X_scaled, feature_cols, horizon: 
         prediction = model.predict(X_latest)[0]
     
     return float(prediction)
+
 def backtest_forecast(
     model,
     df,
@@ -173,13 +173,13 @@ def backtest_forecast(
     results = []
     total_len = len(df)
 
-    start_index = total_len - back_days - 1
+    start_index = total_len - back_days - horizon
     if start_index < 0:
         start_index = 0
 
-    for i in range(start_index, total_len - 1):
+    for i in range(start_index, total_len - horizon):
 
-        # ใช้ข้อมูลถึงวันนั้นเท่านั้น
+        # ใช้ข้อมูลถึงวันนั้นเท่านั้น (ไม่มี future leak)
         df_slice = df.iloc[: i + 1].copy()
 
         df_features = create_features(df_slice).dropna()
@@ -188,6 +188,10 @@ def backtest_forecast(
 
         X = df_features[feature_cols].values
         X_scaled = scaler.transform(X)
+
+        # ถ้าเป็น LSTM ต้องเช็ค window
+        if model_name == "lstm" and len(X_scaled) < LSTM_WINDOW_SIZE:
+            continue
 
         predicted_return = predict_with_model(
             model,
@@ -200,11 +204,12 @@ def backtest_forecast(
         last_close = df_slice.iloc[-1]["close"]
         predicted_close = last_close * (1 + predicted_return)
 
-        next_date = df.iloc[i + 1]["date"]
+        target_date = df.iloc[i + horizon]["date"]
 
         results.append({
-            "date": next_date.strftime("%Y-%m-%d"),
-            "price": float(predicted_close)
+            "date": target_date.strftime("%Y-%m-%d"),
+            "price": float(predicted_close),
+            "actual_close": float(df.iloc[i + horizon]["close"])
         })
 
     return results
@@ -404,20 +409,20 @@ def predict(request: PredictionRequest):
 
         predicted_price = latest_close * (1 + predicted_return)
         predicted_date = latest_date + timedelta(days=request.horizon)
-        backtest_series = backtest_forecast(
-            model,
-            df,
-            scaler,
-            feature_cols,
-            30, 
-            best_model_name,
-            request.horizon
-        )
-         
+                
         # 8. คำนวณ direction
         direction = "UP" if predicted_return > 0 else "DOWN"
         confidence = abs(predicted_return) * 100  # แปลงเป็น %
-        
+        backtest_results = backtest_forecast(
+            model=model,
+            df=df,
+            scaler=scaler,
+            feature_cols=feature_cols,
+            back_days=30,  # ย้อนหลัง 30 วัน
+            model_name=best_model_name,
+            horizon=request.horizon
+        )
+
         return PredictionResponse(
             horizon=request.horizon,
             best_model=best_model_name,
@@ -433,7 +438,7 @@ def predict(request: PredictionRequest):
                 "price_change": predicted_price - latest_close,
                 "price_change_pct": predicted_return * 100
             },
-            backtest_series=backtest_series,
+            backtest_series=backtest_results,
             metadata={
                 "model_used": best_model_name,
                 "features_count": len(feature_cols),
