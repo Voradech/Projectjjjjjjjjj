@@ -57,6 +57,10 @@ export interface PredictionResponse {
   model_metrics: ModelMetrics;
   prediction: PredictionResult;
   metadata: PredictionMetadata;
+  backtest_series: {
+    date: string
+    price: number
+  }[];
 }
 
 export interface AvailableModel {
@@ -64,6 +68,7 @@ export interface AvailableModel {
   best_model: string;
   best_model_metrics: ModelMetrics;
   all_models: string[];
+  
 }
 
 export interface ModelsResponse {

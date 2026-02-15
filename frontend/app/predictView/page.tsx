@@ -39,6 +39,7 @@ export default function PredictView() {
   const [horizon, setHorizon] = useState<Horizon>(1);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const backtestSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
   const [trend, setTrend] = useState<Trend | null>(null);
   const [signal, setSignal] = useState<Signal | null>(null);
@@ -155,6 +156,29 @@ export default function PredictView() {
       // ================= BACKEND (AUTO MODEL) =================
       const res = await predictPrice(horizon);
       setSelectedModel(res.best_model);
+      // ================= BACKTEST (ย้อนหลัง 30 วัน) =================
+
+// ลบเส้นเก่าก่อน
+    if (backtestSeriesRef.current) {
+      chartApiRef.current.removeSeries(backtestSeriesRef.current);
+      backtestSeriesRef.current = null;
+    } 
+
+    const backtestData = (res.backtest_series ?? []).map((p: any) => ({
+      time: Math.floor(new Date(p.date).getTime() / 1000) as UTCTimestamp,
+      value: p.price,
+    }));
+    backtestSeriesRef.current = chartApiRef.current.addSeries(LineSeries, {
+      color: "#facc15", // สีเหลือง
+      lineWidth: 2,
+    });
+
+    backtestSeriesRef.current.setData(backtestData);
+
+    // เอาเส้นราคาด้านขวาออกให้ดูสะอาด
+    backtestSeriesRef.current.applyOptions({
+      priceLineVisible: false,
+    });
 
       predictSeriesRef.current = chartApiRef.current.addSeries(LineSeries, {
         color: "#3b82f6", // Blue-500
@@ -205,10 +229,11 @@ export default function PredictView() {
       const dataLen = sortedCandles.length;
 
       // สั่งให้กราฟ Zoom ไปที่ช่วง: 30 วันก่อนหน้า -> ไปจนถึง วันที่ทำนายจบ + เผื่อที่ว่างขวานิดหน่อย
-      chartApiRef.current.timeScale().setVisibleLogicalRange({
+      chartApiRef.current.timeScale().fitContent();
+    /*   chartApiRef.current.timeScale().setVisibleLogicalRange({
         from: dataLen - 30,           // ถอยหลังไปดูประวัติแค่ 30 วันพอ
         to: dataLen + horizon + 5,    // ไปข้างหน้าเท่าจำนวนวันที่ทำนาย + เผื่อที่ว่าง 5 ช่อง
-      });
+      }); */
       
     } catch (e: any) {
     
