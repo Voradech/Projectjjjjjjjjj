@@ -202,8 +202,16 @@ export default function PredictView() {
       else if (acc >= 0.52) setConfidence("MEDIUM");
       else setConfidence("LOW");
 
-      chartApiRef.current.timeScale().fitContent();
+      const dataLen = sortedCandles.length;
+
+      // สั่งให้กราฟ Zoom ไปที่ช่วง: 30 วันก่อนหน้า -> ไปจนถึง วันที่ทำนายจบ + เผื่อที่ว่างขวานิดหน่อย
+      chartApiRef.current.timeScale().setVisibleLogicalRange({
+        from: dataLen - 30,           // ถอยหลังไปดูประวัติแค่ 30 วันพอ
+        to: dataLen + horizon + 5,    // ไปข้างหน้าเท่าจำนวนวันที่ทำนาย + เผื่อที่ว่าง 5 ช่อง
+      });
+      
     } catch (e: any) {
+    
       setErr(e?.message ?? "Unknown error");
     } finally {
       setLoading(false);
@@ -281,7 +289,7 @@ export default function PredictView() {
             disabled={loading}
             className="ml-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-6 rounded-lg transition-all shadow-lg hover:shadow-blue-500/20 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transform active:scale-95"
           >
-            {loading ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} fill="currentColor" />}
+            {loading ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
             {loading ? "กำลังวิเคราะห์..." : "เริ่มวิเคราะห์ (Predict)"}
           </button>
         </div>
