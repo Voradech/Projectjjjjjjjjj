@@ -8,7 +8,19 @@ import {
   CandlestickSeries,
   UTCTimestamp,
   ISeriesApi,
+  ColorType,
 } from "lightweight-charts";
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  Minus, 
+  Zap, 
+  Clock, 
+  BarChart2, 
+  BrainCircuit, 
+  Loader2, 
+  Search 
+} from "lucide-react";
 
 import { predictPrice } from "@/services/prediction";
 import { fetchActualCandles } from "@/services/marketData";
@@ -35,41 +47,64 @@ export default function PredictView() {
 
   const query = useMemo(
     () => ({ symbol: "BTCUSDT", interval: "1d", limit: 220 }),
-    [],
+    []
   );
 
-  // ================= CHART INIT =================
+  // ================= CHART INIT (THEMED) =================
   useEffect(() => {
     if (!chartRef.current) return;
 
     const chart = createChart(chartRef.current, {
-      height: 520,
-      width: chartRef.current.clientWidth || 900,
+      height: 500,
+      width: chartRef.current.clientWidth,
       layout: {
-        background: { color: "#ffffff" },
-        textColor: "#000000",
+        background: { type: ColorType.Solid, color: "transparent" }, // Transparent background
+        textColor: "#94a3b8", // Slate-400
       },
       grid: {
-        vertLines: { visible: true },
-        horzLines: { visible: true },
+        vertLines: { color: "rgba(255, 255, 255, 0.05)" },
+        horzLines: { color: "rgba(255, 255, 255, 0.05)" },
       },
-      rightPriceScale: { borderVisible: true },
+      rightPriceScale: {
+        borderColor: "rgba(255, 255, 255, 0.1)",
+      },
       timeScale: {
-        borderVisible: true,
+        borderColor: "rgba(255, 255, 255, 0.1)",
         timeVisible: true,
-        secondsVisible: false,
       },
       crosshair: {
-        vertLine: { visible: true },
-        horzLine: { visible: true },
+        vertLine: {
+          color: "#818cf8",
+          width: 1,
+          style: 1,
+          labelBackgroundColor: "#818cf8",
+        },
+        horzLine: {
+          color: "#818cf8",
+          width: 1,
+          style: 1,
+          labelBackgroundColor: "#818cf8",
+        },
       },
     });
 
     chartApiRef.current = chart;
-    return () => chart.remove();
+
+    // Responsive Chart
+    const handleResize = () => {
+      if (chartRef.current) {
+        chart.applyOptions({ width: chartRef.current.clientWidth });
+      }
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.remove();
+    };
   }, []);
 
-  // ================= PREDICT =================
+  // ================= PREDICT LOGIC (UNCHANGED) =================
   const runPredict = async () => {
     try {
       setLoading(true);
@@ -91,12 +126,12 @@ export default function PredictView() {
       actualSeriesRef.current = chartApiRef.current.addSeries(
         CandlestickSeries,
         {
-          upColor: "#22c55e",
-          downColor: "#ef4444",
-          wickUpColor: "#22c55e",
+          upColor: "#10b981", // Emerald-500
+          downColor: "#ef4444", // Red-500
+          wickUpColor: "#10b981",
           wickDownColor: "#ef4444",
           borderVisible: false,
-        },
+        }
       );
 
       const sortedCandles = [...candles].sort((a, b) => a.time - b.time);
@@ -108,7 +143,7 @@ export default function PredictView() {
           high: +c.high,
           low: +c.low,
           close: +c.close,
-        })),
+        }))
       );
 
       // ---------- CLEAR OLD PREDICTION ----------
@@ -119,30 +154,23 @@ export default function PredictView() {
 
       // ================= BACKEND (AUTO MODEL) =================
       const res = await predictPrice(horizon);
-
-      console.log("Last candle close:", candles[candles.length - 1].close);
-      console.log("API current price:", res.prediction.current_price);
-      console.log("API Response:", res);
-      console.log("Direction:", res.prediction.direction);
-      console.log("Predicted Price:", res.prediction.predicted_price);
-      console.log("Predicted Return:", res.prediction.predicted_return);
-
       setSelectedModel(res.best_model);
 
       predictSeriesRef.current = chartApiRef.current.addSeries(LineSeries, {
-        color: "#2563eb",
+        color: "#3b82f6", // Blue-500
         lineWidth: 2,
-        lineStyle: 1, // dashed
+        lineStyle: 2, // Dashed
+        crosshairMarkerVisible: true,
       });
-      const lastCandle = sortedCandles[sortedCandles.length - 1];
-
+      
       const startTime = Math.floor(
-        new Date(res.prediction.current_date).getTime() / 1000,
+        new Date(res.prediction.current_date).getTime() / 1000
       ) as UTCTimestamp;
 
       const endTime = Math.floor(
-        new Date(res.prediction.predicted_date).getTime() / 1000,
+        new Date(res.prediction.predicted_date).getTime() / 1000
       ) as UTCTimestamp;
+      
       predictSeriesRef.current.setData([
         {
           time: startTime,
@@ -154,17 +182,6 @@ export default function PredictView() {
         },
       ]);
 
-      console.log("=== Prediction Line Debug ===");
-      console.log(
-        "Start:",
-        new Date(startTime * 1000).toISOString(),
-        res.prediction.current_price,
-      );
-      console.log(
-        "End:",
-        new Date(endTime * 1000).toISOString(),
-        res.prediction.predicted_price,
-      );
       const direction = res.prediction.direction;
 
       setTrend(
@@ -172,14 +189,14 @@ export default function PredictView() {
           ? "Bullish"
           : direction === "DOWN"
             ? "Bearish"
-            : "sideways",
+            : "sideways"
       );
 
       setSignal(
-        direction === "UP" ? "BUY" : direction === "DOWN" ? "SELL" : "HOLD",
+        direction === "UP" ? "BUY" : direction === "DOWN" ? "SELL" : "HOLD"
       );
 
-      // ---------- CONFIDENCE (FROM METRICS) ----------
+      // ---------- CONFIDENCE ----------
       const acc = res.model_metrics.direction_accuracy;
       if (acc >= 0.55) setConfidence("HIGH");
       else if (acc >= 0.52) setConfidence("MEDIUM");
@@ -192,112 +209,162 @@ export default function PredictView() {
       setLoading(false);
     }
   };
+
   const trendTH: Record<Trend, string> = {
-  Bullish: "ขาขึ้น",
-  Bearish: "ขาลง",
-  sideways: "Sideway / แกว่งตัว",
-};
+    Bullish: "ขาขึ้น (Bullish)",
+    Bearish: "ขาลง (Bearish)",
+    sideways: "Sideway / แกว่งตัว",
+  };
 
-const signalTH: Record<Signal, string> = {
-  BUY: "ซื้อ",
-  SELL: "ขาย",
-  HOLD: "ถือรอ",
-};
+  const signalTH: Record<Signal, string> = {
+    BUY: "ซื้อ (BUY)",
+    SELL: "ขาย (SELL)",
+    HOLD: "ถือรอ (HOLD)",
+  };
 
-const confidenceTH: Record<Confidence, string> = {
-  HIGH: "สูง",
-  MEDIUM: "ปานกลาง",
-  LOW: "ต่ำ",
-};
-  // ================= UI =================
+  const trendIcon = {
+    Bullish: <TrendingUp className="text-emerald-400" size={32} />,
+    Bearish: <TrendingDown className="text-red-400" size={32} />,
+    sideways: <Minus className="text-gray-400" size={32} />,
+  };
+
+  // ================= UI RENDER =================
   return (
-    <div className="min-h-screen p-6 text-white space-y-6 py-14">
-      {/* ================= HEADER ================= */}
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold">Bitcoin Trend Prediction</h1>  
-      </div>
+    <div className="relative min-h-screen bg-[#020617] text-white p-6 md:p-12 overflow-hidden font-sans">
+      
+      {/* Background Effects */}
+      <div className="absolute w-[600px] h-[600px] bg-indigo-500/10 blur-3xl rounded-full top-[-100px] left-[-100px] pointer-events-none" />
+      <div className="absolute w-[500px] h-[500px] bg-emerald-500/10 blur-3xl rounded-full bottom-0 right-0 pointer-events-none" />
 
-      {/* ================= CONTROL ================= */}
-      <div className="flex flex-wrap gap-4 items-center bg-zinc-900 border border-zinc-800 rounded-xl p-4 ">
-        <div className="flex items-center gap-2">
-          <span className="text-sm opacity-70">Prediction</span>
-          <select
-            value={horizon}
-            onChange={(e) => setHorizon(Number(e.target.value) as Horizon)}
-            className="rounded bg-black border border-zinc-700 px-3 py-1"
-          >
-            <option value={1}>1 Day</option>
-            <option value={7}>7 Days</option>
-            <option value={14}>14 Days</option>
-          </select>
-        </div>
-
-        <button
-          onClick={runPredict}
-          disabled={loading}
-          className="ml-auto rounded-lg bg-blue-600 hover:bg-blue-500 px-5 py-2 font-semibold disabled:opacity-50"
-        >
-          {loading ? "Predicting..." : " Prediction "}
-        </button>
-      </div>
-
-      {err && (
-        <div className="rounded-lg bg-red-500/10 border border-red-500 text-red-400 p-3">
-          {err}
-        </div>
-      )}
-
-      {/* ================= RESULT ================= */}
-      {trend && signal && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
-            <div className="text-sm opacity-60">Market Trend</div>
-            <div className="text-3xl font-bold mt-1">{trend ? trendTH[trend] : "-"}</div>
+      <div className="relative z-10 max-w-6xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/5 pb-6">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              <BrainCircuit className="text-emerald-400" size={32} />
+              <span className="bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                Bitcoin AI Predictor
+              </span>
+            </h1>
+            <p className="text-gray-400 text-sm mt-1 ml-1">
+              วิเคราะห์แนวโน้มราคา Bitcoin ด้วย Machine Learning
+            </p>
           </div>
+        </header>
 
-          <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5">
-            <div className="text-sm opacity-60">Trading Signal</div>
-            <div
-              className={`text-3xl font-bold mt-1 ${
-                signal === "BUY"
-                  ? "text-green-400"
-                  : signal === "SELL"
-                    ? "text-red-400"
-                    : "text-zinc-300"
-              }`}
+        {/* Control Bar */}
+        <div className="flex flex-wrap gap-4 items-center bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl">
+          <div className="flex items-center gap-3 px-2">
+            <Clock className="text-emerald-400" size={20} />
+            <span className="text-sm font-medium text-gray-300">ระยะเวลาคาดการณ์ (Horizon):</span>
+          </div>
+          
+          <div className="relative">
+            <select
+              value={horizon}
+              onChange={(e) => setHorizon(Number(e.target.value) as Horizon)}
+              className="appearance-none bg-[#0B1120] border border-white/10 text-white rounded-lg pl-4 pr-10 py-2.5 hover:border-emerald-500/50 focus:border-emerald-400 focus:outline-none transition cursor-pointer"
             >
-              {signal ? signalTH[signal] : "-"}
+              <option value={1}>1 วัน (Day)</option>
+              <option value={7}>7 วัน (Week)</option>
+              <option value={14}>14 วัน (2 Weeks)</option>
+            </select>
+            {/* Custom Arrow */}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
             </div>
           </div>
 
-          <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-5 space-y-2">
-            <div className="text-sm opacity-60">Next {horizon} day(s)</div>
-     
-{/* 
-            {confidence && (
-              <span
-                className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                  confidence === "HIGH"
-                    ? "bg-green-500/20 text-green-400"
-                    : confidence === "MEDIUM"
-                      ? "bg-yellow-500/20 text-yellow-400"
-                      : "bg-zinc-500/20 text-zinc-300"
-                }`}
-              >
-                Confidence: {confidence}
-              </span>
-            )} */}
+          <button
+            onClick={runPredict}
+            disabled={loading}
+            className="ml-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-6 rounded-lg transition-all shadow-lg hover:shadow-blue-500/20 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transform active:scale-95"
+          >
+            {loading ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} fill="currentColor" />}
+            {loading ? "กำลังวิเคราะห์..." : "เริ่มวิเคราะห์ (Predict)"}
+          </button>
+        </div>
+
+        {/* Error Message */}
+        {err && (
+          <div className="animate-in fade-in slide-in-from-top-2 rounded-xl bg-red-500/10 border border-red-500/50 text-red-200 p-4 flex items-center gap-3">
+             <div className="bg-red-500/20 p-2 rounded-full"><TrendingDown size={20} /></div>
+             {err}
+          </div>
+        )}
+
+        {/* Results Grid */}
+        {trend && signal && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Card 1: Trend */}
+            <div className="bg-white/[0.05] backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <BarChart2 size={80} />
+              </div>
+              <div className="text-sm text-gray-400 mb-2">แนวโน้มตลาด (Trend)</div>
+              <div className={`text-2xl font-bold flex items-center gap-2 ${
+                  trend === 'Bullish' ? 'text-emerald-400' : trend === 'Bearish' ? 'text-red-400' : 'text-gray-300'
+              }`}>
+                 {trendIcon[trend]}
+                 {trendTH[trend]}
+              </div>
+            </div>
+
+            {/* Card 2: Signal */}
+            <div className="bg-white/[0.05] backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <Zap size={80} />
+              </div>
+              <div className="text-sm text-gray-400 mb-2">สัญญาณการเทรด (Signal)</div>
+              <div className={`text-3xl font-extrabold flex items-center gap-2 ${
+                  signal === "BUY" ? "text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]" 
+                  : signal === "SELL" ? "text-red-400 drop-shadow-[0_0_10px_rgba(248,113,113,0.3)]" 
+                  : "text-gray-300"
+              }`}>
+                 {signalTH[signal]}
+              </div>
+            </div>
+
+            {/* Card 3: Model Info */}
+            <div className="bg-white/[0.05] backdrop-blur-xl border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <BrainCircuit size={80} />
+              </div>
+              <div className="text-sm text-gray-400 mb-2">โมเดลที่ใช้ & ระยะเวลา</div>
+           
+              <div className="text-sm text-indigo-300 mt-1">
+                 Next {horizon} Day(s) Forecast
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Chart Container */}
+        <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-1 shadow-2xl">
+          <div className="bg-[#0B1120]/50 rounded-xl p-4">
+             <div className="flex items-center justify-between mb-4 px-2">
+                <h3 className="text-lg font-semibold text-gray-200 flex items-center gap-2">
+                  <Search size={18} className="text-gray-500" />
+                  Price Chart & Forecast
+                </h3>
+                <div className="flex gap-4 text-xs">
+                   <div className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                      <span className="text-gray-400">ราคาจริง (Actual)</span>
+                   </div>
+                   <div className="flex items-center gap-1.5">
+                      <div className="w-6 h-0.5 border-t-2 border-dashed border-blue-500"></div>
+                      <span className="text-gray-400">ทำนาย (Predicted)</span>
+                   </div>
+                </div>
+             </div>
+             
+             {/* Chart Element */}
+             <div ref={chartRef} className="w-full h-[500px] rounded-lg overflow-hidden" />
           </div>
         </div>
-      )}
 
-      {/* ================= CHART ================= */}
-      <div className="rounded-xl bg-zinc-900 border border-zinc-800 p-4">
-        <div ref={chartRef} className="w-full h-[520px]" />
-        <div className="text-xs opacity-60 mt-2">
-          Candlestick = Actual Price | Dashed Line = Auto-selected Model
-          Forecast
-        </div>
       </div>
     </div>
   );
