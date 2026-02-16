@@ -19,7 +19,8 @@ import {
   BarChart2, 
   BrainCircuit, 
   Loader2, 
-  Search 
+  Search, 
+  Brain
 } from "lucide-react";
 
 import { predictPrice } from "@/services/prediction";
@@ -159,7 +160,7 @@ export default function PredictView() {
       // ================= BACKTEST (ย้อนหลัง 30 วัน) =================
 
 // ลบเส้นเก่าก่อน
-    if (backtestSeriesRef.current) {
+   /*  if (backtestSeriesRef.current) {
       chartApiRef.current.removeSeries(backtestSeriesRef.current);
       backtestSeriesRef.current = null;
     } 
@@ -179,7 +180,7 @@ export default function PredictView() {
     backtestSeriesRef.current.applyOptions({
       priceLineVisible: false,
     });
-
+ */
       predictSeriesRef.current = chartApiRef.current.addSeries(LineSeries, {
         color: "#3b82f6", // Blue-500
         lineWidth: 2,
@@ -276,9 +277,7 @@ export default function PredictView() {
                 Bitcoin Predictor
               </span>
             </h1>
-            <p className="text-gray-400 text-sm mt-1 ml-1">
-              วิเคราะห์แนวโน้มราคา Bitcoin ด้วย Machine Learning
-            </p>
+         
           </div>
         </header>
 
@@ -310,7 +309,7 @@ export default function PredictView() {
             disabled={loading}
             className="ml-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-2.5 px-6 rounded-lg transition-all shadow-lg hover:shadow-blue-500/20 flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transform active:scale-95"
           >
-            {loading ? <Loader2 className="animate-spin" size={18} /> : <Search size={18} />}
+            {loading ? <Loader2 className="animate-spin" size={18} /> : <Brain size={18} />}
             {loading ? "กำลังวิเคราะห์..." : "เริ่มวิเคราะห์ (Predict)"}
           </button>
         </div>
@@ -363,7 +362,7 @@ export default function PredictView() {
               <div className="text-sm text-gray-400 mb-2">โมเดลที่ใช้ & ระยะเวลา</div>
            
               <div className="text-sm text-indigo-300 mt-1">
-                 Next {horizon} Day(s) Forecast
+                ทำนายล่วงหน้า {horizon} วัน
               </div>
             </div>
           </div>
@@ -383,7 +382,7 @@ export default function PredictView() {
                       <span className="text-gray-400">ราคาจริง (Actual)</span>
                    </div>
                    <div className="flex items-center gap-1.5">
-                      <div className="w-6 h-0.5 border-t-2 border-dashed border-blue-500"></div>
+                      <div className="w-6 h-0.5 border-t-2  border-blue-500"></div>
                       <span className="text-gray-400">ทำนาย (Predicted)</span>
                    </div>
                 </div>

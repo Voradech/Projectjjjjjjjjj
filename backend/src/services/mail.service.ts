@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 
 export const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com", 
+  host: "smtp.gmail.com",
   port: 587,
   secure: false,
   auth: {
@@ -17,7 +17,7 @@ export const sendAlertEmail = async (
   await transporter.sendMail({
     from: `"BTC Alert" <${process.env.EMAIL_USER}>`,
     to,
-    subject: "BTC Alert Triggered 🚨",
+    subject: "BTC Price Alert Notification",
     html: `
       <h2>BTC Alert Triggered</h2>
       <p>${message}</p>

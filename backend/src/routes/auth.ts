@@ -119,7 +119,7 @@ authRouter.post("/login", async (req, res) => {
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 15 * 60 * 1000, // 15 นาที
+      maxAge: 60 * 60 * 1000, // 1 hour
     });
 
     // ✅ Set refreshToken cookie
@@ -131,7 +131,7 @@ authRouter.post("/login", async (req, res) => {
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 15 * 60 * 1000, // 15 นาที (เท่ากับ accessToken)
+      maxAge: 60 * 60 * 1000, // 1 hour (same as accessToken)
     });
 
     return res.json({ role: user.role });
@@ -182,7 +182,7 @@ authRouter.post("/refresh", async (req, res) => {
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 15 * 60 * 1000,
+      maxAge: 60 * 60 * 1000,
     });
 
     // ✅ เพิ่มบรรทัดนี้! Refresh role cookie ด้วย
@@ -191,7 +191,7 @@ authRouter.post("/refresh", async (req, res) => {
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 15 * 60 * 1000,
+      maxAge: 60 * 60 * 1000,
     });
 
     return res.json({ message: "refreshed" });
