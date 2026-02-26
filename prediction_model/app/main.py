@@ -18,7 +18,6 @@ BASE_DIR = os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))
 )
 MODEL_DIR = os.path.join(BASE_DIR, "model")
-DATA_PATH = os.path.join(BASE_DIR, "data", "BTCDATA_1d_full.csv")
 
 AVAILABLE_HORIZONS = [1, 7, 14]
 LSTM_WINDOW_SIZE = 30
@@ -291,7 +290,7 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

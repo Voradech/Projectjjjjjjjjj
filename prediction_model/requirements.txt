@@ -5,8 +5,4 @@ joblib
 fastapi
 uvicorn[standard]
 requests
-ccxt
-matplotlib
-xgboost
-yfinance
 tensorflow
