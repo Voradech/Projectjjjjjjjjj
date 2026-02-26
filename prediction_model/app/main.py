@@ -463,7 +463,6 @@ if __name__ == "__main__":
     print(" BTC PRICE PREDICTION API")
     print("="*60)
     print(f"Model directory: {MODEL_DIR}")
-    print(f"Data path: {DATA_PATH}")
     print(f"Available horizons: {AVAILABLE_HORIZONS}")
     print("="*60)
     
