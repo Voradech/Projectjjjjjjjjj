@@ -157,30 +157,7 @@ export default function PredictView() {
       // ================= BACKEND (AUTO MODEL) =================
       const res = await predictPrice(horizon);
       setSelectedModel(res.best_model);
-      // ================= BACKTEST (ย้อนหลัง 30 วัน) =================
 
-// ลบเส้นเก่าก่อน
-   /*  if (backtestSeriesRef.current) {
-      chartApiRef.current.removeSeries(backtestSeriesRef.current);
-      backtestSeriesRef.current = null;
-    } 
-
-    const backtestData = (res.backtest_series ?? []).map((p: any) => ({
-      time: Math.floor(new Date(p.date).getTime() / 1000) as UTCTimestamp,
-      value: p.price,
-    }));
-    backtestSeriesRef.current = chartApiRef.current.addSeries(LineSeries, {
-      color: "#facc15", // สีเหลือง
-      lineWidth: 2,
-    });
-
-    backtestSeriesRef.current.setData(backtestData);
-
-    // เอาเส้นราคาด้านขวาออกให้ดูสะอาด
-    backtestSeriesRef.current.applyOptions({
-      priceLineVisible: false,
-    });
- */
       predictSeriesRef.current = chartApiRef.current.addSeries(LineSeries, {
         color: "#3b82f6", // Blue-500
         lineWidth: 2,
