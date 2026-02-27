@@ -1,7 +1,6 @@
 import express, { Request, Response } from "express";
 import fetch from "node-fetch";
 import type { BinanceKline, PriceCandle } from "./types";
-import Parser from "rss-parser";
 
 const router = express.Router();
 
@@ -49,50 +48,7 @@ router.get("/price", async (req: Request, res: Response) => {
     });
   }
 });
-const parser = new Parser();
 
-router.get("/news", async (req: Request, res: Response) => {
-  try {
-    const limit = Number(req.query.limit) || 20;
 
-    const feeds = [
-      {
-        source: "CoinDesk",
-        url: "https://www.coindesk.com/arc/outboundfeeds/rss/",
-      },
-      {
-        source: "Cointelegraph",
-        url: "https://cointelegraph.com/rss",
-      },
-    ];
-
-    const items: any[] = [];
-
-    for (const f of feeds) {
-      try {
-        const feed = await parser.parseURL(f.url);
-        items.push(
-          ...(feed.items || []).map((it) => ({
-            title: it.title || "",
-            url: it.link || "",
-            source: f.source,
-            publishedAt: it.isoDate || it.pubDate,
-          }))
-        );
-      } catch (err) {
-        console.error("RSS error:", f.source, err);
-      }
-    }
-
-    return res.json({
-      items: items.slice(0, limit),
-    });
-  } catch (err) {
-    console.error("News API error:", err);
-    return res.status(500).json(
-      { items: [] }
-    );
-  }
-});
 
 export default router;

@@ -7,8 +7,7 @@ export function proxy(req: NextRequest) {
 
   const isAuthPage =
     path === "/login" ||
-    path === "/register" ||
-    path === "/forgotPassword";
+    path === "/register" ;
 
   // Redirect to login if not authenticated and trying to access protected route
   if (!accessToken && !isAuthPage) {

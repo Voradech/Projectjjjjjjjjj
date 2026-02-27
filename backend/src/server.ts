@@ -12,9 +12,9 @@ import { authRouter } from "./routes/auth";
 import { checkAlerts } from "./jobs/checkAlerts";
 import { Request, Response } from "express";
 import { pool } from "./db/pool";
-import newsRouter from "./routes/new";
 import routes from "./route";
 import alertsRouter from "./routes/alert";
+import newsRouter from "./routes/news";
 
 const app = express();
 const server = http.createServer(app);
@@ -56,14 +56,12 @@ app.get("/test-alert", async (req, res) => {
   res.json({ message: "Check executed" });
 });
 // ================= Routes =================
-app.use(routes);
-app.use("/api/news", newsRouter);
 app.use("/route", routes);
 app.use("/auth", authRouter);
 app.use("/alerts", alertsRouter);
 app.use("/api", priceRouter);
 app.use("/api/admin", adminRouter);
-
+app.use("/api/news", newsRouter)
 // ================= Health Check =================
 app.get("/", async (_req: Request, res: Response) => {
   try {
