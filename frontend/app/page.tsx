@@ -129,6 +129,7 @@ export default function ViewGraphPage() {
     const res = await fetch(`${API_BASE}/route/price?${q.toString()}`);
     if (!res.ok) throw new Error(`API error ${res.status}`);
     const json = await res.json();
+    console.log("Fetched candles:", json);
     return json.candles as Candle[];
   }
 
@@ -156,16 +157,19 @@ export default function ViewGraphPage() {
       try {
         wsRef.current?.close();
         wsRef.current = null;
-
+        
         const data = await fetchCandles({ limit });
+        console.log("Initial candles:", data);
         if (cancelled) return;
 
         const sorted = [...data].sort((a, b) => a.time - b.time);
+        console.log("Sorted candles:", sorted);
+        
         setCandles(sorted);
+        console.log("ss",candles)
         setChartData(sorted);
         chartApiRef.current?.timeScale().fitContent();
 
-        // realtime via Binance WS
         const stream = WS_STREAM[interval] ?? WS_STREAM["1m"];
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${stream}`);
         wsRef.current = ws;
@@ -202,6 +206,7 @@ export default function ViewGraphPage() {
               }
               return [...prev, updated];
             });
+            
           } catch {}
         };
       } catch (e: any) {

@@ -34,7 +34,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("🔴 Client disconnected:", socket.id);
+    console.log("Client disconnected:", socket.id);
   });
 });
 
@@ -42,7 +42,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: "http://localhost:3000",
     credentials: true,
   })
 );
@@ -52,14 +52,13 @@ app.get("/test-alert", async (req, res) => {
   await checkAlerts();
   res.json({ message: "Check executed" });
 });
-// ================= Routes =================
+
 app.use("/route", routes);
 app.use("/auth", authRouter);
 app.use("/alerts", alertsRouter);
 app.use("/api", priceRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/news", newsRouter)
-// ================= Health Check =================
 app.get("/", async (_req: Request, res: Response) => {
   try {
     const result = await pool.query("SELECT NOW() as server_time");
@@ -84,12 +83,10 @@ app.get("/", async (_req: Request, res: Response) => {
   }
 });
 
-// ================= Cron =================
 setInterval(() => {
   checkAlerts().catch(console.error);
 }, 10_000);
 
-// ================= Start Server =================
 server.listen(8000, () => {
   console.log("🚀 Backend running on port 8000");
 });
