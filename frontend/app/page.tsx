@@ -126,7 +126,7 @@ export default function ViewGraphPage() {
     });
     if (opts?.endTimeMs) q.set("endTime", String(opts.endTimeMs));
 
-    const res = await fetch(`${API_BASE}/price?${q.toString()}`);
+    const res = await fetch(`${API_BASE}/route/price?${q.toString()}`);
     if (!res.ok) throw new Error(`API error ${res.status}`);
     const json = await res.json();
     return json.candles as Candle[];
