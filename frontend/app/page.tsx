@@ -148,8 +148,8 @@ export default function ViewGraphPage() {
   };
 
   useEffect(() => {
-    let cancelled = false;
-
+/*     let cancelled = false;
+ */
     const run = async () => {
       setLoading(true);
       setErr(null);
@@ -160,7 +160,7 @@ export default function ViewGraphPage() {
         
         const data = await fetchCandles({ limit });
         console.log("Initial candles:", data);
-        if (cancelled) return;
+        /* if (cancelled) return; */
 
         const sorted = [...data].sort((a, b) => a.time - b.time);
         console.log("Sorted candles:", sorted);
@@ -170,7 +170,7 @@ export default function ViewGraphPage() {
         setChartData(sorted);
         chartApiRef.current?.timeScale().fitContent();
 
-        const stream = WS_STREAM[interval] ?? WS_STREAM["1m"];
+        /* const stream = WS_STREAM[interval] ?? WS_STREAM["1m"];
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${stream}`);
         wsRef.current = ws;
 
@@ -208,18 +208,18 @@ export default function ViewGraphPage() {
             });
             
           } catch {}
-        };
+        }; */
       } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? "Fetch failed");
+        /* if (!cancelled) setErr(e?.message ?? "Fetch failed"); */
       } finally {
-        if (!cancelled) setLoading(false);
+       /*  if (!cancelled) setLoading(false); */
       }
     };
 
     run();
-    return () => {
+   /*  return () => {
       cancelled = true;
-    };
+    }; */
   }, [interval, limit]);
 
   return (

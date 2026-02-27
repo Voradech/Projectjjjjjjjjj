@@ -14,7 +14,7 @@ export function proxy(req: NextRequest) {
   }
 
   if (accessToken && isAuthPage) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    return NextResponse.redirect(new URL("/", req.url));
   }
 
 if (path.startsWith("/admin") && role?.trim().toLowerCase() !== "admin") {
