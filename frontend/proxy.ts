@@ -8,7 +8,7 @@ async function validateSession(req: NextRequest) {
   return true;
 
 }
-export async function proxy(req: NextRequest) {
+export async function proxy (req: NextRequest) {
   const accessToken = await validateSession(req);
   const path = req.nextUrl.pathname;
   const isAuthPage =

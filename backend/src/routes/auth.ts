@@ -112,28 +112,16 @@ authRouter.post("/login", async (req, res) => {
       [user.id, sha256(refreshToken)],
     );
 
-    // ✅ Set accessToken cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       sameSite: "none",
       secure: true,
       path: "/",
+      domain: process.env.DOMAIN,
       maxAge: 60 * 60 * 1000, 
     });
 
-    // ✅ Set refreshToken cookie
     res.cookie("refreshToken", refreshToken, refreshCookieOptions());
-
-    // ✅ เพิ่มบรรทัดนี้! Set role cookie
-    res.cookie("role", user.role, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 1000, // 1 hour (same as accessToken)
-    });
-
-    return res.json({ role: user.role });
   } catch (e) {
     console.error("LOGIN ERROR:", e);
     return res.status(500).json({ message: "Server error" });
@@ -184,14 +172,6 @@ authRouter.post("/refresh", async (req, res) => {
       maxAge: 60 * 60 * 1000,
     });
 
-    // ✅ เพิ่มบรรทัดนี้! Refresh role cookie ด้วย
-    res.cookie("role", payload.role, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 1000,
-    });
 
     return res.json({ message: "refreshed" });
   } catch (e) {
