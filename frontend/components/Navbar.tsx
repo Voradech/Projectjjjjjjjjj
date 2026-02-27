@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
-  LayoutDashboard,
-  ShieldCheck,
   LogOut,
   UserCircle,
   LogIn,
@@ -22,7 +20,7 @@ export default function Navbar() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}auth/me`, {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
       credentials: "include", 
     })
       .then((res) => {
