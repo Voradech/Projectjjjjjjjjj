@@ -1,5 +1,5 @@
 // src/services/prediction.ts
-const API_BASE = "http://localhost:8001"; // เปลี่ยนเป็น 8000 ตาม FastAPI
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 export interface PriceInput {
   open: number;
@@ -18,7 +18,6 @@ export interface Candle extends PriceInput {
   time: number; // unix timestamp (sec)
 }
 
-// ============= NEW: Prediction API Interfaces =============
 
 export interface PredictionRequest {
   horizon: 1 | 7 | 14; // จำนวนวันที่ต้องการทำนาย

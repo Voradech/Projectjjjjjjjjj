@@ -12,7 +12,7 @@ type Candle = {
   close: number;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 const RANGE_INTERVAL: Record<RangeKey, string> = {
   "7D": "1h",

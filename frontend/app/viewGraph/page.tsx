@@ -6,7 +6,7 @@ import { createChart, CandlestickSeries, Time } from "lightweight-charts";
 type RangeKey = "1D" | "7D" | "1M" | "1Y";
 type Candle = { time: number; open: number; high: number; low: number; close: number };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 // เลือกช่วงเวลา -> interval ที่เหมาะ (เร็ว + realtime ดี)
 const RANGE_INTERVAL: Record<RangeKey, string> = {

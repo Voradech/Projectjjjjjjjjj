@@ -62,7 +62,7 @@ export default function Register() {
 
     try {
       // ใช้ URL pattern เดียวกับหน้า Login (ปรับ port/path ตามจริงได้เลย)
-      const res = await fetch(`http://localhost:8000/auth/register`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

@@ -1,7 +1,7 @@
-// services/alert.ts
+const API =process.env.NEXT_PUBLIC_API_URL;
 export const updateGlobalAlert = async (enabled: boolean) => {
   const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/alerts/global`,
+    `${API}/api/alerts/global`,
     {
       method: "PUT",
       headers: {

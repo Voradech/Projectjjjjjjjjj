@@ -1,3 +1,9 @@
+const API = process.env.NEXT_PUBLIC_API_URL;
+
+if (!API) {
+  throw new Error("NEXT_PUBLIC_API_URL is not defined");
+}
+
 export type NewsItem = {
   title: string;
   url: string;
@@ -5,13 +11,15 @@ export type NewsItem = {
   publishedAt?: string;
 };
 
-const API_BASE = "http://localhost:8000"; // backend ของคุณ
 
 export async function fetchNews(limit = 20): Promise<NewsItem[]> {
   try {
-    const res = await fetch(`${API_BASE}/news?limit=${limit}`);
+    const res = await fetch(`${API}/news?limit=${limit}`);
 
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error("API error:", res.status);
+      return [];
+    }
 
     const data = await res.json();
     return data.items ?? [];

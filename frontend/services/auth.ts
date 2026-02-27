@@ -1,10 +1,10 @@
-const API = "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL;
 
 export async function login(email: string, password: string) {
   const res = await fetch(`${API}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    credentials: "include", // สำคัญ: ให้รับ cookie refresh
+    credentials: "include", 
     body: JSON.stringify({ email, password }),
   });
   if (!res.ok) throw new Error("Login failed");
@@ -22,7 +22,7 @@ export async function me(accessToken: string) {
 export async function refresh() {
   const res = await fetch(`${API}/auth/refresh`, {
     method: "POST",
-    credentials: "include", // ส่ง cookie refresh ไปให้ backend
+    credentials: "include", 
   });
   if (!res.ok) throw new Error("Refresh failed");
   return res.json() as Promise<{ accessToken: string }>;

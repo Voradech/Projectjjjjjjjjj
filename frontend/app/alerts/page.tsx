@@ -95,7 +95,7 @@ export default function AlertsPage() {
   // ================= FETCH DATA =================
   const fetchMe = async () => {
     try {
-      const res = await fetch("http://localhost:8000/auth/me", { credentials: "include" });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setRole(data.role);
@@ -105,7 +105,7 @@ export default function AlertsPage() {
 
   const fetchAlerts = async () => {
     try {
-      const res = await fetch("http://localhost:8000/alerts", { credentials: "include" });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/alerts`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       setAlerts(Array.isArray(data) ? data : data.data || []);
@@ -115,7 +115,7 @@ export default function AlertsPage() {
   const fetchSystemStatus = async () => {
     if (role !== "admin") return;
     try {
-      const res = await fetch("http://localhost:8000/api/admin/system-alert", { credentials: "include" });
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/system-alert`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setSystemEnabled(Boolean(data.global_alert_enabled));
@@ -127,7 +127,7 @@ export default function AlertsPage() {
   const toggleSystem = async () => {
     if (role !== "admin") return;
     setSystemEnabled(!systemEnabled);
-    await fetch("http://localhost:8000/api/admin/system-alert", {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/system-alert`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -138,7 +138,7 @@ export default function AlertsPage() {
 
   const toggleAlert = async (id: number, isActive: boolean) => {
     setAlerts(alerts.map(a => a.id === id ? { ...a, is_active: !isActive } : a));
-    await fetch(`http://localhost:8000/alerts/${id}`, {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/alerts/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -148,7 +148,7 @@ export default function AlertsPage() {
   };
 
   const deleteAlert = async (id: number) => {
-    await fetch(`http://localhost:8000/alerts/${id}`, {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/alerts/${id}`, {
       method: "DELETE",
       credentials: "include",
     });
@@ -389,7 +389,7 @@ function AddAlertForm({ onSuccess }: { onSuccess: () => void }) {
 
     setSubmitting(true);
     try {
-        await fetch("http://localhost:8000/alerts", {
+        await fetch("${process.env.NEXT_PUBLIC_API_URL}/alerts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

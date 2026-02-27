@@ -17,7 +17,7 @@ export default function ManageUser() {
 
   useEffect(() => {
     
-    fetch("http://localhost:8000/api/admin/users", {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users`, {
       credentials: "include", 
     })
       .then((res) => {
@@ -49,12 +49,12 @@ export default function ManageUser() {
     if (!selectedUser || !action) return;
 
     if (action === "role") {
-      await fetch(`http://localhost:8000/api/admin/users/${selectedUser.id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users/${selectedUser.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include", // ✅
+        credentials: "include", 
         body: JSON.stringify({ role: newRole }),
       });
 
@@ -66,9 +66,9 @@ export default function ManageUser() {
     }
 
     if (action === "delete") {
-      await fetch(`http://localhost:8000/api/admin/users/${selectedUser.id}`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users/${selectedUser.id}`, {
         method: "DELETE",
-        credentials: "include", // ✅
+        credentials: "include", 
       });
 
       setUsers((prev) => prev.filter((u) => u.id !== selectedUser.id));
