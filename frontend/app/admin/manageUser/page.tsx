@@ -18,6 +18,9 @@ export default function ManageUser() {
   useEffect(() => {
     
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users`, {
+      headers: {
+        "ngrok-skip-browser-warning": "true",
+      },
       credentials: "include", 
     })
       .then((res) => {
@@ -53,6 +56,7 @@ export default function ManageUser() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
         },
         credentials: "include", 
         body: JSON.stringify({ role: newRole }),
@@ -68,6 +72,9 @@ export default function ManageUser() {
     if (action === "delete") {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users/${selectedUser.id}`, {
         method: "DELETE",
+        headers: {
+          "ngrok-skip-browser-warning": "true",
+        },
         credentials: "include", 
       });
 

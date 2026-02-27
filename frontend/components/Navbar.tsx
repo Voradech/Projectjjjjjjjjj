@@ -21,6 +21,9 @@ export default function Navbar() {
 
   useEffect(() => {
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+      headers: {
+        "ngrok-skip-browser-warning": "true",
+      },
       credentials: "include", 
     })
       .then((res) => {
@@ -40,6 +43,7 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
+      headers: { "ngrok-skip-browser-warning": "true", },
       method: "POST",
       credentials: "include",
     });
@@ -48,7 +52,7 @@ export default function Navbar() {
     router.push("/login");
   };
 
-  if (loading) return null; // หรือใส่ skeleton ก็ได้
+  if (loading) return null; 
 
 
   return (

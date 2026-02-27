@@ -27,6 +27,7 @@ if (path.startsWith("/admin") && role?.trim().toLowerCase() !== "admin") {
 export const config = {
   matcher: [
     "/login",
+    "/news",
     "/register",
     "/forgotPassword",
     "/alerts",
