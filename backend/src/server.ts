@@ -19,7 +19,6 @@ import newsRouter from "./routes/news";
 const app = express();
 const server = http.createServer(app);
 
-// 🔥 Socket.io Setup
 export const io = new Server(server, {
   cors: {
     origin: process.env.CORS_ORIGIN,
@@ -29,8 +28,6 @@ export const io = new Server(server, {
 
 io.on("connection", (socket) => {
   console.log(" Client connected:", socket.id);
-
-  // join room ตาม userId
   socket.on("join", (userId: number) => {
     socket.join(`user_${userId}`);
     console.log("User joined room:", userId);
@@ -59,7 +56,7 @@ app.get("/test-alert", async (req, res) => {
 app.use("/route", routes);
 app.use("/auth", authRouter);
 app.use("/alerts", alertsRouter);
-app.use("/api", priceRouter);
+app.use("/price", priceRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/news", newsRouter)
 // ================= Health Check =================

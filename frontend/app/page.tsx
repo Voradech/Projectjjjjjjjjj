@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createChart, CandlestickSeries, Time, ColorType } from "lightweight-charts";
+import {
+  createChart,
+  CandlestickSeries,
+  Time,
+  ColorType,
+} from "lightweight-charts";
 
 type RangeKey = "7D" | "1M" | "1Y" | "ALL";
 type Candle = {
@@ -33,40 +38,36 @@ const WS_STREAM: Record<string, string> = {
 };
 
 function toSecTime(t: number): Time {
-  return (t > 10_000_000_000 ? Math.floor(t / 1000) : t) as Time; // ms->sec
+  return (t > 10_000_000_000 ? Math.floor(t / 1000) : t) as Time; 
 }
 
 export default function ViewGraphPage() {
-  const chartContainerRef = useRef<HTMLDivElement | null>(null); // เปลี่ยนชื่อเล็กน้อยเพื่อความชัดเจน
+  const chartContainerRef = useRef<HTMLDivElement | null>(null); 
   const chartApiRef = useRef<ReturnType<typeof createChart> | null>(null);
   const seriesRef = useRef<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
-
   const [range, setRange] = useState<RangeKey>("1M");
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
   const interval = useMemo(() => RANGE_INTERVAL[range], [range]);
   const limit = useMemo(() => RANGE_LIMIT[range], [range]);
 
-  // init chart once
   useEffect(() => {
     if (!chartContainerRef.current) return;
-
     const chart = createChart(chartContainerRef.current, {
-      height: 500, // ปรับความสูงให้พอดี
+      height: 500,
       width: chartContainerRef.current.clientWidth,
       layout: {
-        background: { type: ColorType.Solid, color: "transparent" }, // พื้นหลังใส
-        textColor: "#94a3b8", // text-slate-400
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: "#94a3b8",
       },
       grid: {
-        vertLines: { color: "#334155" }, // slate-700 (เส้นตารางจางๆ)
+        vertLines: { color: "#334155" },
         horzLines: { color: "#334155" },
       },
       rightPriceScale: {
-        borderColor: "#475569", // slate-600
+        borderColor: "#475569",
         borderVisible: true,
       },
       timeScale: {
@@ -74,7 +75,6 @@ export default function ViewGraphPage() {
         borderVisible: true,
         timeVisible: true,
         secondsVisible: false,
-        
       },
       crosshair: {
         vertLine: {
@@ -91,12 +91,11 @@ export default function ViewGraphPage() {
         },
       },
     });
-
     chartApiRef.current = chart;
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#10b981", // emerald-500
-      downColor: "#ef4444", // red-500
+      upColor: "#10b981", 
+      downColor: "#ef4444", 
       borderUpColor: "#10b981",
       borderDownColor: "#ef4444",
       wickUpColor: "#10b981",
@@ -119,7 +118,6 @@ export default function ViewGraphPage() {
     };
   }, []);
 
-  // ... (ฟังก์ชัน fetchCandles และ setChartData เหมือนเดิม)
   async function fetchCandles(opts?: { endTimeMs?: number; limit?: number }) {
     const q = new URLSearchParams({
       symbol: "BTCUSDT",
@@ -128,27 +126,25 @@ export default function ViewGraphPage() {
     });
     if (opts?.endTimeMs) q.set("endTime", String(opts.endTimeMs));
 
-    const res = await fetch(`${API_BASE}/api/price?${q.toString()}`);
+    const res = await fetch(`${API_BASE}/price?${q.toString()}`);
     if (!res.ok) throw new Error(`API error ${res.status}`);
     const json = await res.json();
     return json.candles as Candle[];
   }
 
   const setChartData = (all: Candle[]) => {
-    // ตรวจสอบว่ามีข้อมูลก่อน set
     if (all.length === 0) return;
-    
+
     const mappedData = all.map((c) => ({
-        time: toSecTime(c.time),
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      }));
+      time: toSecTime(c.time),
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    }));
 
     seriesRef.current?.setData(mappedData);
   };
-  // ...
 
   useEffect(() => {
     let cancelled = false;
@@ -168,7 +164,7 @@ export default function ViewGraphPage() {
         setCandles(sorted);
         setChartData(sorted);
         chartApiRef.current?.timeScale().fitContent();
-        
+
         // realtime via Binance WS
         const stream = WS_STREAM[interval] ?? WS_STREAM["1m"];
         const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${stream}`);
@@ -223,14 +219,11 @@ export default function ViewGraphPage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] w-full p-4 md:p-8">
-      
       {/* Main Glass Card Container */}
       <div className="w-full max-w-6xl bg-[#1e293b]/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl p-6 md:p-8">
-        
         {/* Header Section: Title & Controls */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-           
             <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-2">
               <span className="w-3 h-8 bg-emerald-500 rounded-full inline-block"></span>
               BTC / USDT
@@ -264,30 +257,36 @@ export default function ViewGraphPage() {
         {/* Loading / Error State Overlay */}
         {loading && candles.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50 z-10 rounded-3xl backdrop-blur-sm">
-             <span className="text-emerald-400 animate-pulse">Loading data...</span>
+            <span className="text-emerald-400 animate-pulse">
+              Loading data...
+            </span>
           </div>
         )}
-        
+
         {err && (
-             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm text-center">
-                Error: {err}
-             </div>
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm text-center">
+            Error: {err}
+          </div>
         )}
 
         {/* Chart Container */}
         <div className="relative w-full h-[500px] rounded-2xl overflow-hidden border border-slate-700/30 bg-slate-900/20 shadow-inner">
-           <div ref={chartContainerRef} className="w-full h-full" />
-        </div>
-        
-        {/* Footer Info (Optional) */}
-        <div className="mt-4 flex justify-between items-center text-xs text-slate-500">
-{/*              <span>Data source: Binance API</span>
- */}             <span className={`flex items-center gap-1.5 ${wsRef.current ? "text-emerald-400" : "text-slate-500"}`}>
-                <span className={`w-2 h-2 rounded-full ${wsRef.current ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`}></span>
-                {wsRef.current ? "Live Connection" : "Connecting..."}
-             </span>
+          <div ref={chartContainerRef} className="w-full h-full" />
         </div>
 
+        {/* Footer Info (Optional) */}
+        <div className="mt-4 flex justify-between items-center text-xs text-slate-500">
+          {/*              <span>Data source: Binance API</span>
+           */}{" "}
+          <span
+            className={`flex items-center gap-1.5 ${wsRef.current ? "text-emerald-400" : "text-slate-500"}`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${wsRef.current ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`}
+            ></span>
+            {wsRef.current ? "Live Connection" : "Connecting..."}
+          </span>
+        </div>
       </div>
     </div>
   );
