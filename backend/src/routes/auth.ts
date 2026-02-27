@@ -36,7 +36,6 @@ function refreshCookieOptions() {
   };
 }
 
-/* ================= register ================= */
 
 authRouter.post("/register", async (req, res) => {
   try {
@@ -202,9 +201,6 @@ authRouter.post("/refresh", async (req, res) => {
   }
 });
 
-/* ================= logout ================= */
-
-/* ================= logout ================= */
 
 authRouter.post("/logout", async (req, res) => {
 
