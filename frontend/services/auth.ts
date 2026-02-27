@@ -36,14 +36,14 @@ export async function logout() {
     credentials: "include",
   });
 }
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
+/* const API_URL = process.env.NEXT_PUBLIC_API_URL;
+ */
 export async function registerUser(payload: {
   username: string;
   email: string;
   password: string;
 }) {
-  const res = await fetch(`${API_URL}/auth/register`, {
+  const res = await fetch(`${API}/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
