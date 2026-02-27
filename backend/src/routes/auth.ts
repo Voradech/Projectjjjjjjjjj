@@ -112,7 +112,7 @@ authRouter.post("/login", async (req, res) => {
       [user.id, sha256(refreshToken)],
     );
 
-    // ✅ Set accessToken cookie
+    //  Set accessToken cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
       sameSite: "none",
@@ -121,7 +121,7 @@ authRouter.post("/login", async (req, res) => {
       maxAge: 60 * 60 * 1000, 
     });
 
-    // ✅ Set refreshToken cookie
+    //  Set refreshToken cookie
     res.cookie("refreshToken", refreshToken, refreshCookieOptions());
 
     return res.json({ role: user.role });
@@ -130,6 +130,7 @@ authRouter.post("/login", async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 });
+
 /* ================= refresh ================= */
 authRouter.post("/refresh", async (req, res) => {
   try {
