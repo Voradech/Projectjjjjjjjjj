@@ -25,8 +25,7 @@ function sha256(input: string) {
 }
 
 function refreshCookieOptions() {
-  const isProd = process.env.NODE_ENV === "production";
-  return {
+ return {
     httpOnly: true,
     secure: true, 
     sameSite: "none" as const,
@@ -116,10 +115,10 @@ authRouter.post("/login", async (req, res) => {
     // ✅ Set accessToken cookie
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      secure: true,
       path: "/",
-      maxAge: 60 * 60 * 1000, // 1 hour
+      maxAge: 60 * 60 * 1000, 
     });
 
     // ✅ Set refreshToken cookie
