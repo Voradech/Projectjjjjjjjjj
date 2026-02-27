@@ -10,6 +10,7 @@ import {
 import { authRequired } from "../middlewares/authRequired";
 import { JwtPayload } from "jsonwebtoken";
 import { me } from "../controllers/auth.controller";
+
 export const authRouter = Router();
 
 

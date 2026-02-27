@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { verifyAccessToken, AuthTokenPayload } from "../utils/jwt"; 
+import { verifyAccessToken} from "../utils/jwt"; 
 import jwt from "jsonwebtoken";
 
 export const login = async (req: any, res: any) => {

@@ -41,7 +41,6 @@ io.on("connection", (socket) => {
   });
 });
 
-// ================= Middleware =================
 app.use(express.json());
 app.use(cookieParser());
 app.use(
