@@ -28,8 +28,8 @@ function refreshCookieOptions() {
   const isProd = process.env.NODE_ENV === "production";
   return {
     httpOnly: true,
-    secure: false, // prod ต้อง https
-    sameSite: "lax" as const,
+    secure: true, 
+    sameSite: "none" as const,
     path: "/",
     maxAge:
       Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14) * 24 * 60 * 60 * 1000,
