@@ -1,38 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export function proxy(req: NextRequest) {
+async function validateSession(req: NextRequest) {
   const accessToken = req.cookies.get("accessToken")?.value;
-  const role = req.cookies.get("role")?.value;
-  const path = req.nextUrl.pathname;
+  if (!accessToken) {
+    return false;
+  }
+  return true;
 
+}
+export async function proxy(req: NextRequest) {
+  const accessToken = await validateSession(req);
+  const path = req.nextUrl.pathname;
   const isAuthPage =
     path === "/login" ||
     path === "/register" ;
 
-  if (!accessToken && !isAuthPage) {
+  const protectedPaths = ["/alerts", "/predictView", "/news"];
+  const isProtected = protectedPaths.some((protectedPath) => path === protectedPath);
+
+  if (isProtected && !accessToken) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
   if (accessToken && isAuthPage) {
     return NextResponse.redirect(new URL("/", req.url));
   }
-
-if (path.startsWith("/admin") && role?.trim().toLowerCase() !== "admin") {
-  return NextResponse.redirect(new URL("/admin/manageUser", req.url));
-}
-
+  /* if (path.startsWith("/admin") && role?.trim().toLowerCase() !== "admin") {
+    return NextResponse.redirect(new URL("/admin/manageUser", req.url));
+  }*/
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    "/login",
-    "/news",
-    "/register",
-    "/forgotPassword",
-    "/alerts",
-    "/predictView",
-    "/viewGraph",
-    "/admin/:path*",
+    "/",
+    "/:path",
+    "/((?!api|trpc|_next|_vercel|.\..).)",
   ],
 };

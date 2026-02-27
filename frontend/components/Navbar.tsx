@@ -59,7 +59,6 @@ export default function Navbar() {
     <nav className="fixed top-0 w-full z-50 bg-[#020617] backdrop-blur-md border-b border-navy-700 px-6 py-5 flex justify-between items-center shadow-lg shadow-black/20">
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2 cursor-pointer group">
-        {/* <div className="w-2 h-2 bg-accent rounded-full animate-pulse shadow-[0_0_10px_#10B981] group-hover:scale-150 transition-transform"></div> */}
         <h1 className="text-xl font-bold tracking-widest text-white group-hover:text-accent transition-colors">
           Predict
           <span className="text-accent group-hover:text-white transition-colors">
