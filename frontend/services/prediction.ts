@@ -1,5 +1,5 @@
 // src/services/prediction.ts
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE = process.env.NEXT_PUBLIC_ML_API;
 
 export interface PriceInput {
   open: number;
