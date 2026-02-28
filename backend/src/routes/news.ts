@@ -4,7 +4,7 @@ import Parser from "rss-parser";
 const router = Router();
 const parser = new Parser({ timeout: 5000 });
 
-router.get("/", async (req: Request, res: Response) => {
+router.get("/api", async (req: Request, res: Response) => {
   try {
     const limit = Number(req.query.limit) || 20;
 
