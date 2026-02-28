@@ -36,8 +36,7 @@ export async function logout() {
     credentials: "include",
   });
 }
-/* const API_URL = process.env.NEXT_PUBLIC_API_URL;
- */
+
 export async function registerUser(payload: {
   username: string;
   email: string;

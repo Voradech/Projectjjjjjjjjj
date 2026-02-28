@@ -118,7 +118,8 @@ authRouter.post("/login", async (req, res) => {
       sameSite: "none",
       secure: true,
       path: "/",
-      maxAge: 60 * 60 * 1000, 
+      maxAge: 60 * 60 * 1000,
+      domain: process.env.DOMAIN,
     });
 
     //  Set refreshToken cookie
