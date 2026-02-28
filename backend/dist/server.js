@@ -81,5 +81,5 @@ setInterval(() => {
     (0, checkAlerts_1.checkAlerts)().catch(console.error);
 }, 10000);
 server.listen(8000, () => {
-    console.log("🚀 Backend running on port 8000");
+    console.log("Backend running on port 8000");
 });
