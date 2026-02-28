@@ -14,7 +14,7 @@ export type NewsItem = {
 
 export async function fetchNews(limit = 20): Promise<NewsItem[]> {
   try {
-    const res = await fetch(`${API}/news?limit=${limit}`);
+    const res = await fetch(`${API}/api/news?limit=${limit}`);
 
     if (!res.ok) {
       console.error("API error:", res.status);

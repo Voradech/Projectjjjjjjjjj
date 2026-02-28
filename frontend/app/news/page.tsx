@@ -14,7 +14,7 @@ export default function NewsPage() {
     return new Date(utc).toLocaleString("th-TH", {
       timeZone: "Asia/Bangkok",
       year: "numeric",
-      month: "short", // ปรับเป็น short เพื่อประหยัดพื้นที่ในการ์ด
+      month: "short", 
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
