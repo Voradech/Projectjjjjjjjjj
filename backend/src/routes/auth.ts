@@ -25,13 +25,15 @@ function sha256(input: string) {
 }
 
 function refreshCookieOptions() {
- return {
+  return {
     httpOnly: true,
-    secure: true, 
+    secure: true,
     sameSite: "none" as const,
     path: "/",
+    domain: process.env.DOMAIN,   
     maxAge:
-      Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14) * 24 * 60 * 60 * 1000,
+      Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14) *
+      24 * 60 * 60 * 1000,
   };
 }
 
@@ -141,26 +143,6 @@ authRouter.post("/refresh", async (req, res) => {
     }
 
     const payload = verifyRefreshToken(token) as AuthPayload;
-    if (!payload || typeof payload !== "object") {
-      return res.status(401).json({ message: "Invalid refresh token" });
-    }
-
-    const tokenHash = sha256(token);
-
-    const dbRes = await pool.query(
-      `SELECT id FROM refresh_tokens
-      WHERE token_hash=$1
-        AND revoked_at IS NULL
-        AND expires_at > NOW()
-      LIMIT 1`,
-      [tokenHash],
-    );
-
-    if (dbRes.rowCount === 0) {
-      return res
-        .status(401)
-        .json({ message: "Refresh token revoked or expired" });
-    }
 
     const newAccessToken = signAccessToken({
       sub: payload.sub,
@@ -168,31 +150,29 @@ authRouter.post("/refresh", async (req, res) => {
       role: payload.role,
     });
 
-    // ✅ Set accessToken cookie
     res.cookie("accessToken", newAccessToken, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",              
+      secure: true,                
       path: "/",
+      domain: process.env.DOMAIN,    
       maxAge: 60 * 60 * 1000,
     });
 
-    // ✅ เพิ่มบรรทัดนี้! Refresh role cookie ด้วย
     res.cookie("role", payload.role, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
+      secure: true,
       path: "/",
+      domain: process.env.DOMAIN,
       maxAge: 60 * 60 * 1000,
     });
 
     return res.json({ message: "refreshed" });
   } catch (e) {
-    console.error("REFRESH ERROR:", e);
     return res.status(401).json({ message: "Invalid refresh token" });
   }
 });
-
 
 authRouter.post("/logout", async (req, res) => {
   try {
