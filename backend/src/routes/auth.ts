@@ -212,6 +212,7 @@ authRouter.post("/logout", async (req, res) => {
       sameSite: "none" as const,
       secure: true,
       path: "/",
+      domain: process.env.DOMAIN,
     };
 
     res.clearCookie("accessToken", cookieOptions);
