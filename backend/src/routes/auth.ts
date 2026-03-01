@@ -195,11 +195,6 @@ authRouter.post("/refresh", async (req, res) => {
 
 
 authRouter.post("/logout", async (req, res) => {
-
-  res.clearCookie("accessToken");
-  res.clearCookie("refreshToken");
-  res.clearCookie("role"); 
-
   try {
     const token = req.cookies?.refreshToken as string | undefined;
 
@@ -208,15 +203,26 @@ authRouter.post("/logout", async (req, res) => {
         `UPDATE refresh_tokens
          SET revoked_at = NOW()
          WHERE token_hash = $1 AND revoked_at IS NULL`,
-        [sha256(token)],
+        [sha256(token)]
       );
     }
-    res.clearCookie("accessToken", { path: "/" });
-    res.clearCookie("refreshToken", { path: "/" });
+
+    const cookieOptions = {
+      httpOnly: true,
+      sameSite: "none" as const,
+      secure: true,
+      path: "/",
+    };
+
+    res.clearCookie("accessToken", cookieOptions);
+    res.clearCookie("refreshToken", cookieOptions);
+    res.clearCookie("role", cookieOptions);
+
     return res.json({ message: "Logged out" });
   } catch (e) {
     console.error("LOGOUT ERROR:", e);
     return res.status(500).json({ message: "Server error" });
   }
 });
+
 authRouter.get("/me", me);
