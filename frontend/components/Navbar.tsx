@@ -14,13 +14,14 @@ interface User {
   email: string;
   role: string;
 }
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function Navbar() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, {
+    fetch(`${API_URL}/auth/me`, {
       headers: {
         "ngrok-skip-browser-warning": "true",
       },
@@ -42,8 +43,7 @@ export default function Navbar() {
   }, []);
 
   const handleLogout = async () => {
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/logout`, {
-      headers: { "ngrok-skip-browser-warning": "true", },
+    await fetch(`${API_URL}/auth/logout`, {
       method: "POST",
       credentials: "include",
     });
