@@ -211,7 +211,7 @@ authRouter.post("/logout", async (req, res) => {
         [sha256(token)],
       );
     }
-
+    res.clearCookie("accessToken", { path: "/" });
     res.clearCookie("refreshToken", { path: "/" });
     return res.json({ message: "Logged out" });
   } catch (e) {

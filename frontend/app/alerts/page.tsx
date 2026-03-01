@@ -27,7 +27,7 @@ type Alert = {
   confidence_threshold?: number;
   is_active: boolean;
 };
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL ;
 // Config สำหรับแสดงผล
 const getAlertConfig = (type: string) => {
   switch (type) {
@@ -82,8 +82,7 @@ const getAlertConfig = (type: string) => {
     default:
       return { label: type, icon: BellRing, color: "text-gray-400", bg: "bg-gray-400/10", desc: "" };
   }
-};
-
+}; 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -95,7 +94,7 @@ export default function AlertsPage() {
   // ================= FETCH DATA =================
   const fetchMe = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/me`, { credentials: "include" });
+      const res = await fetch(`${API_URL}/auth/me`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setRole(data.role);
@@ -105,7 +104,7 @@ export default function AlertsPage() {
 
   const fetchAlerts = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/alerts`, { credentials: "include" });
+      const res = await fetch(`${API_URL}/alerts`, { credentials: "include" });
       if (!res.ok) return;
       const data = await res.json();
       setAlerts(Array.isArray(data) ? data : data.data || []);
@@ -115,7 +114,7 @@ export default function AlertsPage() {
   const fetchSystemStatus = async () => {
     if (role !== "admin") return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/system-alert`, { credentials: "include" });
+      const res = await fetch(`${API_URL}/api/admin/system-alert`, { credentials: "include" });
       if (res.ok) {
         const data = await res.json();
         setSystemEnabled(Boolean(data.global_alert_enabled));
@@ -127,7 +126,7 @@ export default function AlertsPage() {
   const toggleSystem = async () => {
     if (role !== "admin") return;
     setSystemEnabled(!systemEnabled);
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/system-alert`, {
+    await fetch(`${API_URL}/api/admin/system-alert`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -138,7 +137,7 @@ export default function AlertsPage() {
 
   const toggleAlert = async (id: number, isActive: boolean) => {
     setAlerts(alerts.map(a => a.id === id ? { ...a, is_active: !isActive } : a));
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/alerts/${id}`, {
+    await fetch(`${API_URL}/alerts/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -148,7 +147,7 @@ export default function AlertsPage() {
   };
 
   const deleteAlert = async (id: number) => {
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/alerts/${id}`, {
+    await fetch(`${API_URL}/alerts/${id}`, {
       method: "DELETE",
       credentials: "include",
     });
@@ -389,7 +388,7 @@ function AddAlertForm({ onSuccess }: { onSuccess: () => void }) {
 
     setSubmitting(true);
     try {
-        await fetch("${process.env.NEXT_PUBLIC_API_URL}/alerts", {
+        await fetch("${API_URL}/alerts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
