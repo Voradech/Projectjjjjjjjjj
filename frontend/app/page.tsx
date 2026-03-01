@@ -133,7 +133,6 @@ export default function ViewGraphPage() {
     });
     if (!res.ok) throw new Error(`API error ${res.status}`);
     const json = await res.json();
-    console.log("Fetched candles:", json);
     return json.candles as Candle[];
   }
 
@@ -163,11 +162,9 @@ export default function ViewGraphPage() {
         wsRef.current = null;
         
         const data = await fetchCandles({ limit });
-        console.log("Initial candles:", data);
         if (cancelled) return;
 
         const sorted = [...data].sort((a, b) => a.time - b.time);
-        console.log("Sorted candles:", sorted);
         setCandles(sorted);
         setChartData(sorted);
         chartApiRef.current?.timeScale().fitContent();

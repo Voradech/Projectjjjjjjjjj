@@ -27,7 +27,7 @@ type Alert = {
   confidence_threshold?: number;
   is_active: boolean;
 };
-const API_URL = process.env.NEXT_PUBLIC_API_URL ;
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 // Config สำหรับแสดงผล
 const getAlertConfig = (type: string) => {
   switch (type) {
@@ -388,7 +388,7 @@ function AddAlertForm({ onSuccess }: { onSuccess: () => void }) {
 
     setSubmitting(true);
     try {
-        await fetch("${API_URL}/alerts", {
+        await fetch(`${API_URL}/alerts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

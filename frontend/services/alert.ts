@@ -1,4 +1,5 @@
-const API =process.env.NEXT_PUBLIC_API_URL;
+const API = process.env.NEXT_PUBLIC_API_URL;
+
 export const updateGlobalAlert = async (enabled: boolean) => {
   const res = await fetch(
     `${API}/api/alerts/global`,
