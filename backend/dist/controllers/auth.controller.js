@@ -14,25 +14,26 @@ const login = async (req, res) => {
     if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
     }
-    // ✅ ตรวจ password
     const isMatch = await bcryptjs_1.default.compare(password, user.password);
     if (!isMatch) {
         return res.status(401).json({ message: "Invalid credentials" });
     }
-    // ✅ สร้าง JWT
     const token = jsonwebtoken_1.default.sign({
         sub: user.id,
         email: user.email,
         username: user.username,
         role: user.role,
-    }, process.env.JWT_ACCESS_SECRET, { expiresIn: "1d" });
-    // ✅ set httpOnly cookie
-    res.cookie("accessToken", token, {
+    }, process.env.JWT_ACCESS_SECRET, { expiresIn: "1h" } // ✅ ให้ตรงกับ cookie
+    );
+    const cookieOptions = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: "none",
+        secure: true,
         path: "/",
-    });
+        domain: process.env.DOMAIN,
+        maxAge: 60 * 60 * 1000,
+    };
+    res.cookie("accessToken", token, cookieOptions);
     return res.json({
         message: "Login success",
         role: user.role,
@@ -56,7 +57,14 @@ const me = async (req, res) => {
         });
     }
     catch {
-        res.clearCookie("accessToken");
+        const cookieOptions = {
+            httpOnly: true,
+            sameSite: "none",
+            secure: true,
+            path: "/",
+            domain: process.env.DOMAIN,
+        };
+        res.clearCookie("accessToken", cookieOptions);
         return res.status(401).json({ message: "Invalid token" });
     }
 };
