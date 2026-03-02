@@ -100,9 +100,9 @@ export default function Navbar() {
 
         {user ? (
           <div className="flex items-center gap-4">
-            <span className="text-gray-200 flex items-center gap-2 bg-[151e32] px-3 py-1 rounded-full border border[#1E293B]">
+          {/*   <span className="text-gray-200 flex items-center gap-2 bg-[151e32] px-3 py-1 rounded-full border border[#1E293B]">
               <UserCircle size={16} className="text-accent" /> {user.username}
-            </span>
+            </span> */}
             <button
               onClick={handleLogout}
               className="text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
