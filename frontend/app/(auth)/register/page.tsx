@@ -147,7 +147,12 @@ export default function Register() {
             <input
               type="text"
               value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^[A-Za-z0-9_]*$/.test(value)) {
+                  setForm({ ...form, username: value });
+                }
+              }}
               className="w-full bg-[#0B1120] border border-white/10 pl-10 p-3 rounded-lg text-white focus:border-emerald-400 outline-none transition placeholder:text-gray-600"
               placeholder="Username"
             />
@@ -162,7 +167,12 @@ export default function Register() {
             <input
               type="email"
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (/^[A-Za-z0-9@._-]*$/.test(value)) {
+                  setForm({ ...form, email: value });
+                }
+              }}
               className="w-full bg-[#0B1120] border border-white/10 pl-10 p-3 rounded-lg text-white focus:border-emerald-400 outline-none transition placeholder:text-gray-600"
               placeholder="Email Address"
             />
