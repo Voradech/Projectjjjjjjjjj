@@ -7,39 +7,39 @@ import {
   LogOut,
   UserCircle,
   LogIn,
+  Menu,
+  X,
 } from "lucide-react";
+
 interface User {
   id: string;
   username: string;
   email: string;
   role: string;
 }
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export default function Navbar() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     fetch(`${API_URL}/auth/me`, {
       headers: {
         "ngrok-skip-browser-warning": "true",
       },
-      credentials: "include", 
+      credentials: "include",
     })
       .then((res) => {
         if (!res.ok) throw new Error("not logged in");
         return res.json();
       })
-      .then((data) => {
-        setUser(data);
-      })
-      .catch(() => {
-        setUser(null);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+      .then((data) => setUser(data))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleLogout = async () => {
@@ -52,81 +52,88 @@ export default function Navbar() {
     router.push("/login");
   };
 
-  if (loading) return null; 
-
+  if (loading) return null;
 
   return (
-    <nav className="fixed top-0 w-full z-50 bg-[#020617] backdrop-blur-md border-b border-navy-700 px-6 py-5 flex justify-between items-center shadow-lg shadow-black/20">
-      {/* Logo */}
-      <Link href="/" className="flex items-center gap-2 cursor-pointer group">
-        <h1 className="text-xl font-bold tracking-widest text-white group-hover:text-accent transition-colors">
-          Predict
-          <span className="text-accent group-hover:text-white transition-colors">
-            Bitcoin
-          </span>
-        </h1>
-      </Link>
-      <div>
-        <Link
-          href="/"
-          className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
-        >
-          {" "}
-          Home
-        </Link>
-        <Link
-          href="/predictView"
-          className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
-        >
-          Predict
-        </Link>
-        <Link
-          href="/news"
-          className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
-        >
-          News
-        </Link>
-        <Link
-          href="/alerts"
-          className="bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
-        >
-          Alert
-        </Link>
-      </div>
-      {/* Menu & Auth */}
-      <div className="flex gap-6 text-sm font-medium text-gray-400 items-center">
-        {/* Auth Section */}
-        <div className="h-6 w-px bg-navy-700 mx-2"></div>
+    <nav className="fixed top-0 w-full z-50 bg-[#020617] border-b border-navy-700 px-6 py-4 shadow-lg shadow-black/20">
 
-        {user ? (
-          <div className="flex items-center gap-4">
-          {/*   <span className="text-gray-200 flex items-center gap-2 bg-[151e32] px-3 py-1 rounded-full border border[#1E293B]">
-              <UserCircle size={16} className="text-accent" /> {user.username}
-            </span> */}
+      <div className="flex justify-between items-center">
+
+        {/* Logo */}
+        <Link href="/" className="text-xl font-bold tracking-widest text-white">
+          Predict<span className="text-accent">Bitcoin</span>
+        </Link>
+
+        {/* Desktop Menu */}
+        <div className="hidden md:flex gap-4">
+          <Link href="/" className="nav-btn">Home</Link>
+          <Link href="/predictView" className="nav-btn">Predict</Link>
+          <Link href="/news" className="nav-btn">News</Link>
+          <Link href="/alerts" className="nav-btn">Alert</Link>
+        </div>
+
+        {/* Desktop Auth */}
+        <div className="hidden md:flex items-center gap-4">
+
+          {user ? (
             <button
               onClick={handleLogout}
-              className="text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
+              className="text-red-400 hover:text-red-300 flex items-center gap-1"
             >
               <LogOut size={16} /> Logout
             </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <Link
-              href="/login"
-              className="bg-accent text-navy-950 px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20 flex items-center gap-2"
-            >
-              <LogIn size={16} /> Login
-            </Link>
-            <Link
-              href="/register"
-              className="bg-accent text-navy-950 px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20"
-            >
-              Sign Up
-            </Link>
-          </div>
-        )}
+          ) : (
+            <>
+              <Link href="/login" className="nav-btn flex items-center gap-2">
+                <LogIn size={16} /> Login
+              </Link>
+
+              <Link href="/register" className="nav-btn">
+                Sign Up
+              </Link>
+            </>
+          )}
+
+        </div>
+
+        {/* Mobile Button */}
+        <button
+          className="md:hidden text-white"
+          onClick={() => setMenuOpen(!menuOpen)}
+        >
+          {menuOpen ? <X size={26} /> : <Menu size={26} />}
+        </button>
       </div>
+
+      {/* Mobile Menu */}
+      {menuOpen && (
+        <div className="md:hidden flex flex-col gap-3 mt-4">
+
+          <Link href="/" className="mobile-btn">Home</Link>
+          <Link href="/predictView" className="mobile-btn">Predict</Link>
+          <Link href="/news" className="mobile-btn">News</Link>
+          <Link href="/alerts" className="mobile-btn">Alert</Link>
+
+          <div className="border-t border-gray-700 pt-3">
+
+            {user ? (
+              <button
+                onClick={handleLogout}
+                className="text-red-400 flex items-center gap-2"
+              >
+                <LogOut size={16} /> Logout
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <Link href="/login" className="mobile-btn">Login</Link>
+                <Link href="/register" className="mobile-btn">Sign Up</Link>
+              </div>
+            )}
+
+          </div>
+
+        </div>
+      )}
     </nav>
   );
 }
