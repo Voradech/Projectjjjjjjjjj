@@ -222,76 +222,100 @@ export default function ViewGraphPage() {
   }, [interval, limit]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] w-full p-4 md:p-8">
-      {/* Main Glass Card Container */}
-      <div className="w-full max-w-6xl bg-[#1e293b]/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl p-6 md:p-8">
-        {/* Header Section: Title & Controls */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight flex items-center gap-2">
-              <span className="w-3 h-8 bg-emerald-500 rounded-full inline-block"></span>
-              BTC / USDT
-            </h2>
-            <p className="text-slate-400 text-sm mt-1 ml-5">
-              Bitcoin Price Chart
-            </p>
-          </div>
+  <div className="flex flex-col items-center justify-center min-h-[80vh] w-full px-3 sm:px-6 lg:px-10 py-6">
+    
+    {/* Main Glass Card */}
+    <div className="w-full max-w-7xl bg-[#1e293b]/50 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl p-4 sm:p-6 lg:p-8">
 
-          {/* Time Range Selector (Segmented Control style) */}
-          <div className="bg-slate-900/60 p-1.5 rounded-xl border border-slate-700/50 flex gap-1">
-            {(["7D", "1M", "1Y", "ALL"] as RangeKey[]).map((k) => (
-              <button
-                key={k}
-                onClick={() => setRange(k)}
-                className={`
-                  px-4 py-1.5 text-sm font-medium rounded-lg transition-all duration-200
-                  ${
-                    range === k
-                      ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
-                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                  }
-                `}
-              >
-                {k}
-              </button>
-            ))}
-          </div>
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
+
+        <div>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white tracking-tight flex items-center gap-2">
+            <span className="w-2 sm:w-3 h-6 sm:h-8 bg-emerald-500 rounded-full"></span>
+            BTC / USDT
+          </h2>
+
+          <p className="text-slate-400 text-xs sm:text-sm mt-1 ml-4">
+            Bitcoin Price Chart
+          </p>
         </div>
 
-        {/* Loading / Error State Overlay */}
-        {loading && candles.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50 z-10 rounded-3xl backdrop-blur-sm">
-            <span className="text-emerald-400 animate-pulse">
-              Loading data...
-            </span>
-          </div>
-        )}
+        {/* Range selector */}
+        <div className="bg-slate-900/60 p-1 rounded-xl border border-slate-700/50 flex gap-1 overflow-x-auto">
 
-        {err && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm text-center">
-            Error: {err}
-          </div>
-        )}
+          {(["7D", "1M", "1Y", "ALL"] as RangeKey[]).map((k) => (
+            <button
+              key={k}
+              onClick={() => setRange(k)}
+              className={`
+                px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium rounded-lg whitespace-nowrap
+                transition-all duration-200
+                ${
+                  range === k
+                    ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                    : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                }
+              `}
+            >
+              {k}
+            </button>
+          ))}
 
-        {/* Chart Container */}
-        <div className="relative w-full h-[500px] rounded-2xl overflow-hidden border border-slate-700/30 bg-slate-900/20 shadow-inner">
-          <div ref={chartContainerRef} className="w-full h-full" />
-        </div>
-
-        {/* Footer Info (Optional) */}
-        <div className="mt-4 flex justify-between items-center text-xs text-slate-500">
-          {/*              <span>Data source: Binance API</span>
-           */}{" "}
-          <span
-            className={`flex items-center gap-1.5 ${wsRef.current ? "text-emerald-400" : "text-slate-500"}`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${wsRef.current ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`}
-            ></span>
-            {wsRef.current ? "Live Connection" : "Connecting..."}
-          </span>
         </div>
       </div>
+
+      {/* Loading */}
+      {loading && candles.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50 z-10 rounded-3xl backdrop-blur-sm">
+          <span className="text-emerald-400 animate-pulse">
+            Loading data...
+          </span>
+        </div>
+      )}
+
+      {/* Error */}
+      {err && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm text-center">
+          Error: {err}
+        </div>
+      )}
+
+      {/* Chart */}
+      <div className="
+        relative 
+        w-full 
+        h-[300px] 
+        sm:h-[400px] 
+        md:h-[450px] 
+        lg:h-[500px]
+        rounded-2xl 
+        overflow-hidden 
+        border border-slate-700/30 
+        bg-slate-900/20 
+        shadow-inner
+      ">
+        <div ref={chartContainerRef} className="w-full h-full" />
+      </div>
+
+      {/* Footer */}
+      <div className="mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs text-slate-500">
+
+        <span
+          className={`flex items-center gap-1.5 ${
+            wsRef.current ? "text-emerald-400" : "text-slate-500"
+          }`}
+        >
+          <span
+            className={`w-2 h-2 rounded-full ${
+              wsRef.current ? "bg-emerald-400 animate-pulse" : "bg-slate-600"
+            }`}
+          ></span>
+          {wsRef.current ? "Live Connection" : "Connecting..."}
+        </span>
+
+      </div>
     </div>
-  );
+  </div>
+);
 }
