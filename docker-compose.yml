@@ -1,0 +1,59 @@
+services:
+  frontend:
+    # Frontend service
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/app:/app/frontend/app
+      - /app/frontend/node_modules
+    networks:
+      - pgsite
+
+  backend:
+    # Backend service
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/src:/app/src
+      - /app/node_modules
+    networks:
+      - pgsite
+
+  prediction_model:
+    # Prediction model service
+    build:
+      context: ./prediction_model
+      dockerfile: Dockerfile
+    container_name: prediction_model
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./prediction_model:/app
+    networks:
+      - pgsite
+  db:
+    # PostgreSQL database service
+    image: postgres:16
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    restart: always
+    ports:
+      - '5435:5432'
+    environment:
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - POSTGRES_DB=predicton_db
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=root
+    networks:
+      - pgsite
+volumes:
+  db_data:
+
+networks:
+  pgsite:
