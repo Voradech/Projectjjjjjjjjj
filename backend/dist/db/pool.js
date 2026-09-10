@@ -8,10 +8,10 @@ const pg_1 = require("pg");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
 exports.pool = new pg_1.Pool({
-    host: 'dpg-d6675bf5r7bs73cc9eh0-a.singapore-postgres.render.com',
-    port: 5432,
-    user: 'admin',
-    password: 'aTDZtYx7W3dG5vxSvN6xp5HTEpsaNbcN',
-    database: 'predicton_db_eyaa',
-    ssl: { rejectUnauthorized: false }
+    host: process.env.DB_HOST || "localhost",
+    port: Number(process.env.DB_PORT || 5432),
+    user: process.env.DB_USER || "admin",
+    password: process.env.DB_PASS || "root",
+    database: process.env.DB_NAME || "predicton_db",
+    ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
 });

@@ -17,12 +17,31 @@ function sha256(input) {
 function refreshCookieOptions() {
     return {
         httpOnly: true,
-        secure: true,
-        sameSite: "none",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         path: "/",
-        domain: process.env.DOMAIN,
+        ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
         maxAge: Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14) *
             24 * 60 * 60 * 1000,
+    };
+}
+function accessCookieOptions(maxAge = 60 * 60 * 1000) {
+    return {
+        httpOnly: true,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        maxAge,
+        ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
+    };
+}
+function clearCookieOptions() {
+    return {
+        httpOnly: true,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
     };
 }
 exports.authRouter.post("/register", async (req, res) => {
@@ -75,14 +94,7 @@ exports.authRouter.post("/login", async (req, res) => {
         await pool_1.pool.query(`INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
        VALUES ($1, $2, NOW() + interval '14 days')`, [user.id, sha256(refreshToken)]);
         //  Set accessToken cookie
-        res.cookie("accessToken", accessToken, {
-            httpOnly: true,
-            sameSite: "none",
-            secure: true,
-            path: "/",
-            maxAge: 60 * 60 * 1000,
-            domain: process.env.DOMAIN,
-        });
+        res.cookie("accessToken", accessToken, accessCookieOptions());
         //  Set refreshToken cookie
         res.cookie("refreshToken", refreshToken, refreshCookieOptions());
         return res.json({ role: user.role });
@@ -105,21 +117,14 @@ exports.authRouter.post("/refresh", async (req, res) => {
             email: payload.email,
             role: payload.role,
         });
-        res.cookie("accessToken", newAccessToken, {
-            httpOnly: true,
-            sameSite: "none",
-            secure: true,
-            path: "/",
-            domain: process.env.DOMAIN,
-            maxAge: 60 * 60 * 1000,
-        });
+        res.cookie("accessToken", newAccessToken, accessCookieOptions());
         res.cookie("role", payload.role, {
             httpOnly: true,
-            sameSite: "none",
-            secure: true,
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            secure: process.env.NODE_ENV === "production",
             path: "/",
-            domain: process.env.DOMAIN,
             maxAge: 60 * 60 * 1000,
+            ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
         });
         return res.json({ message: "refreshed" });
     }
@@ -135,13 +140,7 @@ exports.authRouter.post("/logout", async (req, res) => {
          SET revoked_at = NOW()
          WHERE token_hash = $1 AND revoked_at IS NULL`, [sha256(token)]);
         }
-        const cookieOptions = {
-            httpOnly: true,
-            sameSite: "none",
-            secure: true,
-            path: "/",
-            domain: process.env.DOMAIN,
-        };
+        const cookieOptions = clearCookieOptions();
         res.clearCookie("accessToken", cookieOptions);
         res.clearCookie("refreshToken", cookieOptions);
         res.clearCookie("role", cookieOptions);

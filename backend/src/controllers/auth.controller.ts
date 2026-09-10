@@ -29,11 +29,11 @@ export const login = async (req: any, res: any) => {
 
   const cookieOptions = {
     httpOnly: true,
-    sameSite: "none" as const,
-    secure: true,
+    sameSite: process.env.NODE_ENV === "production" ? "none" as const : "lax" as const,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
-    domain: process.env.DOMAIN,
     maxAge: 60 * 60 * 1000, 
+    ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
   };
 
   res.cookie("accessToken", token, cookieOptions);
@@ -64,10 +64,10 @@ export const me = async (req: any, res: any) => {
   } catch {
     const cookieOptions = {
       httpOnly: true,
-      sameSite: "none" as const,
-      secure: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" as const : "lax" as const,
+      secure: process.env.NODE_ENV === "production",
       path: "/",
-      domain: process.env.DOMAIN,
+      ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
     };
 
     res.clearCookie("accessToken", cookieOptions);

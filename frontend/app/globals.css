@@ -26,9 +26,9 @@ body {
     background-image: radial-gradient(circle at 50% 0%, #020617, #020617);
 }
 .nav-btn{
-  @apply bg-accent text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all shadow-lg shadow-accent/20;
+  @apply  text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-400 transition-all ;
 }
 
 .mobile-btn{
-  @apply bg-accent text-white px-4 py-2 rounded-lg font-bold;
+  @apply text-white px-4 py-2 rounded-lg font-bold;
 }

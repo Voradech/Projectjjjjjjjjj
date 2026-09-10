@@ -54,7 +54,7 @@ const getAlertMessage = (type: string, price: number) => {
 
 const getPredictionResult = async (): Promise<{ direction: "UP" | "DOWN"; confidence: number }> => {
   const response = await axios.post(
-    "http://localhost:8001/predict",
+    `${process.env.PREDICTION_API_URL || "http://localhost:8001"}/predict`,
     { horizon: 1, use_latest_data: true },
     { timeout: 10000 }
   );

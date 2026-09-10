@@ -1,7 +1,9 @@
 services:
   frontend:
     # Frontend service
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: dockerfile
     container_name: frontend
     ports:
       - "3000:3000"
@@ -15,13 +17,29 @@ services:
     # Backend service
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     container_name: backend
     ports:
       - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=admin
+      - DB_PASS=root
+      - DB_NAME=predicton_db
+      - DB_SSL=false
+      - CORS_ORIGIN=http://localhost:3000
+      - PREDICTION_API_URL=http://prediction_model:8001
     volumes:
       - ./backend/src:/app/src
       - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+      prediction_model:
+        condition: service_started
     networks:
       - pgsite
 
@@ -42,6 +60,7 @@ services:
     image: postgres:16
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
     restart: always
     ports:
       - '5435:5432'
@@ -52,6 +71,11 @@ services:
       - POSTGRES_PASSWORD=root
     networks:
       - pgsite
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d predicton_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 volumes:
   db_data: 
 

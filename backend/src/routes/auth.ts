@@ -27,13 +27,34 @@ function sha256(input: string) {
 function refreshCookieOptions() {
   return {
     httpOnly: true,
-    secure: true,
-    sameSite: "none" as const,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" as const : "lax" as const,
     path: "/",
-    domain: process.env.DOMAIN,   
+    ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
     maxAge:
       Number(process.env.REFRESH_TOKEN_TTL_DAYS || 14) *
       24 * 60 * 60 * 1000,
+  };
+}
+
+function accessCookieOptions(maxAge = 60 * 60 * 1000) {
+  return {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === "production" ? "none" as const : "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge,
+    ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
+  };
+}
+
+function clearCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: process.env.NODE_ENV === "production" ? "none" as const : "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
   };
 }
 
@@ -115,14 +136,7 @@ authRouter.post("/login", async (req, res) => {
     );
 
     //  Set accessToken cookie
-    res.cookie("accessToken", accessToken, {
-      httpOnly: true,
-      sameSite: "none",
-      secure: true,
-      path: "/",
-      maxAge: 60 * 60 * 1000,
-      domain: process.env.DOMAIN,
-    });
+    res.cookie("accessToken", accessToken, accessCookieOptions());
 
     //  Set refreshToken cookie
     res.cookie("refreshToken", refreshToken, refreshCookieOptions());
@@ -150,22 +164,15 @@ authRouter.post("/refresh", async (req, res) => {
       role: payload.role,
     });
 
-    res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      sameSite: "none",              
-      secure: true,                
-      path: "/",
-      domain: process.env.DOMAIN,    
-      maxAge: 60 * 60 * 1000,
-    });
+    res.cookie("accessToken", newAccessToken, accessCookieOptions());
 
     res.cookie("role", payload.role, {
       httpOnly: true,
-      sameSite: "none",
-      secure: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" as const : "lax" as const,
+      secure: process.env.NODE_ENV === "production",
       path: "/",
-      domain: process.env.DOMAIN,
       maxAge: 60 * 60 * 1000,
+      ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
     });
 
     return res.json({ message: "refreshed" });
@@ -187,13 +194,7 @@ authRouter.post("/logout", async (req, res) => {
       );
     }
 
-    const cookieOptions = {
-      httpOnly: true,
-      sameSite: "none" as const,
-      secure: true,
-      path: "/",
-      domain: process.env.DOMAIN,
-    };
+    const cookieOptions = clearCookieOptions();
 
     res.clearCookie("accessToken", cookieOptions);
     res.clearCookie("refreshToken", cookieOptions);

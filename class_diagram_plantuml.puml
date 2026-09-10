@@ -1,0 +1,82 @@
+@startuml Class Diagram - Crypto Alert System
+
+class User {
+    == Attributes ==
+    - id: number
+    - email: string
+    - username: string
+    - password: string
+    - role: "admin" | "user"
+    - created_at: string
+    - updated_at: string
+
+    == Methods ==
+    + createAlert(alertData: object): Promise<Alert>
+    + getMyAlerts(): Promise<Alert[]>
+    + deleteAlert(alertId: string): Promise<boolean>
+    + login(credentials: object): Promise<object>
+    + register(userData: object): Promise<object>
+    + updateProfile(data: object): Promise<boolean>
+}
+
+class Alert {
+    == Attributes ==
+    - id: number
+    - user_id: number
+    - type: string
+    - target_price: number?
+    - percentage: number?
+    - time_window: number?
+    - confidence_threshold: number?
+    - is_active: boolean
+    - created_at: string
+    - last_triggered_at: string?
+
+    == Methods ==
+    + create(): Promise<Alert>
+    + update(data: object): Promise<Alert>
+    + delete(): Promise<boolean>
+    + checkTrigger(currentPrice: number, priceData: Kline[]): boolean
+    + getAlertMessage(price: number): string
+}
+
+class Kline {
+    == Attributes ==
+    - time: number
+    - open: number
+    - high: number
+    - low: number
+    - close: number
+    - volume: number
+
+    == Methods ==
+    + getKlines(options: object): Promise<Kline[]>
+    + getCurrentPrice(): Promise<number>
+    + calculateEMA(prices: number[], period: number): number[]
+    + fetchFromBinance(symbol: string, interval: string, limit: number): Promise<Kline[]>
+}
+
+class PredictionResult {
+    == Attributes ==
+    - current_price: number
+    - predicted_price: number
+    - direction: "UP" | "DOWN"
+    - confidence: number
+
+    == Methods ==
+    + getPrediction(horizon: number): Promise<PredictionResult>
+    + isConfident(): boolean
+    + getDirection(): string
+    + getConfidenceScore(): number
+}
+
+User ||--o{ Alert : สร้างและจัดการ
+Alert ..> Kline : ใช้เมื่อเช็คราคา
+Alert ..> PredictionResult : ใช้เมื่อเป็น AI Alert
+
+note right of User : ผู้ใช้หลักของระบบ\nจัดการ Alert และข้อมูลส่วนตัว
+note right of Alert : กฎการแจ้งเตือน\nตรวจสอบเงื่อนไขอัตโนมัติ
+note right of Kline : ข้อมูลราคา\nดึงจาก Binance API
+note right of PredictionResult : ผลการทำนาย AI\nใช้สำหรับการแจ้งเตือนอัจฉริยะ
+
+@enduml

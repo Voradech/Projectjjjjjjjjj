@@ -52,7 +52,7 @@ const getAlertMessage = (type, price) => {
 };
 /* ================= Prediction ================= */
 const getPredictionResult = async () => {
-    const response = await axios_1.default.post("http://localhost:8001/predict", { horizon: 1, use_latest_data: true }, { timeout: 10000 });
+    const response = await axios_1.default.post(`${process.env.PREDICTION_API_URL || "http://localhost:8001"}/predict`, { horizon: 1, use_latest_data: true }, { timeout: 10000 });
     return {
         direction: response.data.prediction.direction,
         confidence: Math.abs(response.data.prediction.predicted_return_pct),

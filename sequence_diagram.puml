@@ -1,0 +1,71 @@
+@startuml Sequence Diagram - Crypto Alert System
+
+title Sequence Diagram - การทำงานของระบบ Crypto Alert และ Prediction
+
+actor User as user
+participant "Frontend\n(Next.js)" as frontend
+participant "Backend\n(Node.js)" as backend
+participant "Prediction Model\n(Python/FastAPI)" as prediction
+participant "Binance API" as binance
+database "Database\n(PostgreSQL)" as db
+
+== Authentication Flow ==
+user -> frontend: เข้าสู่ระบบ (login)
+frontend -> backend: POST /auth/login
+backend -> db: ตรวจสอบข้อมูลผู้ใช้
+db --> backend: ส่งข้อมูลผู้ใช้
+backend --> frontend: ส่ง JWT token
+frontend --> user: แสดงหน้า dashboard
+
+== Price Prediction Flow ==
+user -> frontend: ดูการทำนายราคา
+frontend -> backend: GET /price/predict?horizon=7
+backend -> prediction: POST /predict (horizon=7)
+prediction -> binance: GET /api/v3/klines (BTCUSDT, 1d, limit=200)
+binance --> prediction: ส่งข้อมูลราคา BTC
+prediction -> prediction: ประมวลผล features และทำนายด้วย ML model
+prediction --> backend: ส่งผลการทำนาย
+backend --> frontend: ส่งข้อมูลการทำนาย
+frontend --> user: แสดงกราฟและผลการทำนาย
+
+== Alert Management Flow ==
+user -> frontend: สร้าง Alert ใหม่
+frontend -> backend: POST /alerts
+backend -> db: บันทึก Alert
+db --> backend: ยืนยันการบันทึก
+backend --> frontend: ส่ง Alert ID
+frontend --> user: แสดง Alert ที่สร้างแล้ว
+
+== Alert Checking Flow (Background Job) ==
+backend -> backend: Cron job ทุก 5 นาที
+backend -> db: ดึง Alerts ที่ active
+db --> backend: ส่งรายการ Alerts
+loop สำหรับแต่ละ Alert
+    backend -> binance: GET current price
+    binance --> backend: ส่งราคาปัจจุบัน
+    backend -> backend: ตรวจสอบเงื่อนไข Alert
+    alt เงื่อนไข Alert เป็นจริง
+        backend -> backend: สร้างข้อความแจ้งเตือน
+        backend -> prediction: เรียก prediction ถ้าเป็น AI Alert
+        prediction --> backend: ส่งข้อมูลเพิ่มเติม
+        backend -> backend: ส่งอีเมลแจ้งเตือน
+        backend -> db: อัปเดต last_triggered_at
+    end
+end
+
+== News Management Flow (Admin) ==
+user -> frontend: เข้าสู่ระบบเป็น Admin
+frontend -> backend: POST /auth/login (admin)
+backend -> db: ตรวจสอบ role admin
+db --> backend: ยืนยันสิทธิ์ admin
+frontend -> backend: GET /admin/news
+backend -> db: ดึงรายการข่าว
+db --> backend: ส่งข้อมูลข่าว
+backend --> frontend: ส่งรายการข่าว
+user -> frontend: เพิ่มข่าวใหม่
+frontend -> backend: POST /admin/news
+backend -> db: บันทึกข่าวใหม่
+db --> backend: ยืนยันการบันทึก
+backend --> frontend: ยืนยันการเพิ่มข่าว
+
+@enduml

@@ -1,0 +1,57 @@
+@startuml Sequence Diagram - Prediction Flow Detail
+
+title Sequence Diagram - การทำนายราคา BTC (รายละเอียด)
+
+actor User as user
+participant "Frontend\n(Next.js)" as frontend
+participant "Backend\n(Node.js)" as backend
+participant "Prediction API\n(FastAPI)" as api
+participant "Binance API" as binance
+participant "ML Models\n(LSTM/RF/GB)" as models
+
+user -> frontend: คลิกปุ่ม "ทำนายราคา 7 วัน"
+frontend -> backend: POST /price/predict\n{horizon: 7}
+backend -> api: POST /predict\n{horizon: 7, use_latest_data: true}
+
+api -> api: get_best_model(horizon=7)
+note right: อ่าน metrics.json หาโมเดลที่ดีที่สุด\n(โดยดู direction_accuracy)
+
+api -> api: load_model_and_scaler(horizon=7, model_name)
+note right: โหลด scaler, feature_info และโมเดล\nจากไฟล์ .pkl หรือ .keras
+
+api -> binance: GET /api/v3/klines\n?symbol=BTCUSDT&interval=1d&limit=200
+binance --> api: ส่งข้อมูลราคา 200 วันล่าสุด
+
+api -> api: fetch_market_data() และ create_features()
+note right: แปลงข้อมูลเป็น DataFrame\nสร้าง features: returns, MA, volatility, lags
+
+api -> api: df_features.dropna()
+note right: ลบแถวที่มี NaN ออก
+
+api -> api: X = df_features[feature_cols].values
+api -> api: X_scaled = scaler.transform(X)
+
+alt model_name == "lstm"
+    api -> api: create_sequences(X_scaled, window=30)
+    api -> models: model.predict(X_latest_sequence)
+    models --> api: predicted_return (float)
+else model_name == "rf" or "gb"
+    api -> api: X_latest = X_scaled[-1:, :]
+    api -> models: model.predict(X_latest)
+    models --> api: predicted_return (float)
+end
+
+api -> api: latest_close = df.iloc[-1]["close"]
+api -> api: predicted_price = latest_close * (1 + predicted_return)
+
+api -> api: backtest_forecast() ย้อนหลัง 30 วัน
+note right: ทำนายย้อนหลังเพื่อแสดงประวัติการทำนาย
+
+api --> backend: ส่ง PredictionResponse
+note right: รวม prediction, backtest_series, metadata
+
+backend --> frontend: ส่งข้อมูลการทำนาย
+frontend -> frontend: ประมวลผลข้อมูลสำหรับแสดงกราฟ
+frontend --> user: แสดงกราฟทำนาย + backtest + metrics
+
+@enduml

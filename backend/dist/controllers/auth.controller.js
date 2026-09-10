@@ -27,11 +27,11 @@ const login = async (req, res) => {
     );
     const cookieOptions = {
         httpOnly: true,
-        sameSite: "none",
-        secure: true,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        secure: process.env.NODE_ENV === "production",
         path: "/",
-        domain: process.env.DOMAIN,
         maxAge: 60 * 60 * 1000,
+        ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
     };
     res.cookie("accessToken", token, cookieOptions);
     return res.json({
@@ -59,10 +59,10 @@ const me = async (req, res) => {
     catch {
         const cookieOptions = {
             httpOnly: true,
-            sameSite: "none",
-            secure: true,
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            secure: process.env.NODE_ENV === "production",
             path: "/",
-            domain: process.env.DOMAIN,
+            ...(process.env.DOMAIN ? { domain: process.env.DOMAIN } : {}),
         };
         res.clearCookie("accessToken", cookieOptions);
         return res.status(401).json({ message: "Invalid token" });
